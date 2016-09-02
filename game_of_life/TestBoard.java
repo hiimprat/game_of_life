@@ -1,10 +1,6 @@
-/**
- * Created by Jack on 5/25/2016.
- */
-import com.sun.org.apache.regexp.internal.RE;
+
 import javafx.application.Application;
 import javafx.geometry.Insets;
-import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Slider;
@@ -15,36 +11,36 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
-import org.jetbrains.annotations.Contract;
-import org.w3c.dom.css.Rect;
-
 import java.util.*;
 
 
 public class TestBoard extends Application {
 
-    /*Board is 100x100. There is a 10 Block
+    /*The board is 90x90. There is a 10 Block
     buffer zone around the Board.
      */
+
+    //Keeps a refrence to each house, it's coordinate, and it's rectangle associatd with it.
     private House[][] boardOfHouses = new House[110][110];
+    //Keeps track of the number of neighbors of each house respectively
     private int[][] boardOfNeighbors = new int[110][110];
 
-    /*Linked List of "Houses" or
-    blocks that are filled in
-     */
+    //Houses that are currently on the board
     private Stack<House> currentHouses = new Stack<>();
     //Houses that I've checked so far (for counting)
     private Stack<House> checkedHouses = new Stack<>();
     //houses that will be in the new board;
     private Stack<House> newHouses = new Stack<>();
-    //pane is the overall window
-    private Pane pane;
-    //board is the board of squares
+
+    //This is the pane where the houses will be projected on
     private Pane board;
+
     //is game paused
     private boolean paused = true;
-    //This is usd for counting neighbors
-    Timer timer;
+    //Used for a new thread for counting neighbors while responding to user
+    private Timer timer;
+    //Used to get refresh rate
+    private Slider speedSlider;
 
     /*Start App*/
     public static void main(String[] args) {
@@ -55,12 +51,12 @@ public class TestBoard extends Application {
     public void start(Stage primaryStage) {
     //declare objects needed
         board = new Pane();
-        pane = new Pane();
+        Pane pane = new Pane();
         VBox vb = new VBox();
         HBox hb = new HBox();
         Button playPauseBtn = new Button();
         Button clearBoardBtn = new Button();
-        Slider speedSlider = new Slider();
+        speedSlider = new Slider();
 
     //title of app and basic startup procedures
         primaryStage.setTitle("Test Board");
@@ -99,7 +95,7 @@ public class TestBoard extends Application {
 
     //Events
         board.setOnMousePressed((MouseEvent e) -> {
-            mousePressed(e);
+            leftMousePressed(e);
         });
         clearBoardBtn.setOnAction((event) -> {
             clearBoard();
@@ -115,6 +111,7 @@ public class TestBoard extends Application {
         primaryStage.show();
     }
 
+    //Associates a rectangle with a spot on the board with respect to the house at that given spot
     private void setUpBoard(){
         for(int yIndex = 0; yIndex < 110; yIndex++){
             for(int xIndex = 0; xIndex < 110; xIndex++){
@@ -131,35 +128,35 @@ public class TestBoard extends Application {
             for (int xCord = 10; xCord < 100; xCord++) {
                 House currentHouse = boardOfHouses[xCord][yCord];
                 Rectangle currentRectangle = currentHouse.getRectangle();
-            /*NEED TO OPTIMIZE FOR SPACE*/
                 if (currentHouse.isOccupied())
                     currentRectangle.setFill(Color.web("#80bfff"));
                 else
                     currentRectangle.setFill(Color.WHITE);
+                //only add the rectangles that need to be shown. Change this for expandability.
                 board.getChildren().add(currentRectangle);
             }
         }
     }
 
-    /*NEED TO RENAME LATER
-        Upon clicking the mouse on the board,
-    */
-    private void mousePressed(MouseEvent e) {
-        /*NEED TO OPTIMIZE CLASSES (HOUSE & COORDINATE)*/
+    private void leftMousePressed(MouseEvent e) {
         //Sets coordinate of mouse click to match x and y cords of the board
-            Coordinate mousePos = new Coordinate((int) Math.round(e.getSceneX()), (int) Math.round(e.getSceneY())-77);
-        /*MAYBE OPTIMIZE FOR SPACE (USE LESS BOARDS/ DIFFERENT DATA STRUCTURE)*/
-        House currentHouse = boardOfHouses[(mousePos.getX()+100)/10][(mousePos.getY()+100)/10];
+        int xCord = ((int) Math.round(e.getSceneX())+100)/10;
+        //-77 here because the top of the actual page is 77 px tall
+        int yCord = (((int) Math.round(e.getSceneY())-77)+100)/10;
+
+        House currentHouse = boardOfHouses[xCord][yCord];
+        //if house already there, then don't do anything
         if(currentHouse.isOccupied())
             return;
         //place "house" into the original board
-            currentHouse.setOccupied(true);
+        currentHouse.setOccupied(true);
         //color of rectangle
-            currentHouse.getRectangle().setFill(Color.web("#80bfff"));
-        //add "house" to a queue for easy access when counting neighbors
+        currentHouse.getRectangle().setFill(Color.web("#80bfff"));
+        //add "house" to stack for easy access when counting neighbors
         currentHouses.add(currentHouse);
     }
 
+    //toggle play and pausing the game
     private void playPauseGame(Button buttonPressed){
         if(paused){
             paused = false;
@@ -174,27 +171,35 @@ public class TestBoard extends Application {
         }
     }
 
+    //clears board
     private void clearBoard(){
+        //make all of board white
         clearBoardOfHouses();
         boardOfNeighbors = new int[110][110];
+        //empty the currentHouse stack
         while(!currentHouses.isEmpty()){
-            House tempHome = currentHouses.pop();
-            tempHome.setRectangleColor(Color.WHITE);
+            currentHouses.pop();
         }
     }
 
+    //makes entire board unassigned, and white
     private void clearBoardOfHouses(){
         for(int xIndex = 0; xIndex < 110; xIndex++) {
             for (int yIndex = 0; yIndex < 110; yIndex++) {
                 House currentHouse = boardOfHouses[xIndex][yIndex];
                 currentHouse.setChecked(false);
+                currentHouse.setOccupied(false);
                 currentHouse.getRectangle().setFill(Color.WHITE);
             }
         }
     }
 
+    //start the game
     private void playGame(){
+        //slider value
+        long sliderSpeed = Math.round(speedSlider.getValue());
         timer = new Timer();
+        //create a task to run in another thread
         TimerTask countNeighbors = new TimerTask() {
             @Override
             public void run() {
@@ -202,47 +207,44 @@ public class TestBoard extends Application {
                 fixBoard();
             }
         };
-        timer.scheduleAtFixedRate(countNeighbors, 0, 500);
+        timer.scheduleAtFixedRate(countNeighbors, 0, sliderSpeed);
     }
 
+    //goes through the current houses and checks the for their neighbors
     private void countNeighbors(){
         while(!currentHouses.isEmpty()) {
             House currentHouse = currentHouses.pop();
             currentHouse.getRectangle().setFill(Color.WHITE);
-            countAroundDouble(currentHouse);
+            if(!currentHouse.isChecked()){
+                countAroundDouble(currentHouse);
+            }
         }
     }
 
-    private void countAroundDouble(House house){
-        if (house.isChecked())
-            return;
-        int xCord = house.getX();
-        int yCord = house.getY();
+    /*
+    Neighbor counter takes the first house, and counts a radius of one around it. If it's a house, add one to it's
+    number of neighbors. Regardless of if one of the 8 spots is a house or not, count a 1 block radius around that spot
+    as well so that we can see if that will become a house.
+     */
+    private void countAroundDouble(House currentHouse){
+        int xCord = currentHouse.getX();
+        int yCord = currentHouse.getY();
         int numNeigh = 0;
         for (int y = -1; y <=1; y++){
             for(int x=-1; x<=1; x++){
                 House checkingHouse = boardOfHouses[xCord+x][yCord+y];
-                if(!checkingHouse.equals(house)) {
-                    if(boardOfHouses[xCord+x][yCord+y].isOccupied())
+                if(!checkingHouse.equals(currentHouse)) {
+                    if(checkingHouse.isOccupied())
                         numNeigh ++;
                     if(boardOfNeighbors[xCord+x][yCord+y]==0)
                         countAround(xCord+x, yCord+y);
                 }
             }
         }
-        if (numNeigh == 0)
-            numNeigh = -1;
-        boardOfNeighbors[xCord][yCord] = numNeigh;
-        house.setChecked(true);
-        checkedHouses.add(house);
-        if(numNeigh == 2 || numNeigh == 3) {
-            if (house.isOccupied())
-                newHouses.push(house);
-            else if (numNeigh == 3)
-                newHouses.push(house);
-        }
+        findNewHouses(numNeigh,xCord,yCord,currentHouse);
     }
 
+    //helper method to count the spots of the counted spots
     private void countAround(int xCord, int yCord){
         House currentHouse = boardOfHouses[xCord][yCord];
         if (currentHouse.isChecked())
@@ -257,40 +259,45 @@ public class TestBoard extends Application {
                 }
             }
         }
+        findNewHouses(numNeigh,xCord,yCord,currentHouse);
+    }
 
+    //if the spot fits the criteria to be a house, then add it to a stack of new houses
+    private void findNewHouses(int numNeigh, int xCord, int yCord, House house){
         if (numNeigh == 0)
             numNeigh = -1;
         boardOfNeighbors[xCord][yCord] = numNeigh;
-        currentHouse.setChecked(true);
-        checkedHouses.add(currentHouse);
+        house.setChecked(true);
+        checkedHouses.add(house);
         if(numNeigh == 2 || numNeigh == 3) {
-            if (currentHouse.isOccupied())
-                newHouses.push(currentHouse);
-            else if (numNeigh == 3)
-                newHouses.push(currentHouse);
+            if (house.isOccupied() || numNeigh == 3)
+                newHouses.push(house);
         }
     }
 
+
     private void fixBoard(){
+        //uncheck all houses for next round
         while(!checkedHouses.isEmpty()){
             House tempHouse = checkedHouses.pop();
             tempHouse.setChecked(false);
             tempHouse.setOccupied(false);
         }
+        //transfer all new houses into current houses for next run
         while(!newHouses.isEmpty()){
             House currentHouse = newHouses.pop();
-            currentHouse.getRectangle().setFill(Color.web("#80bfff"));
-            currentHouses.add(currentHouse);
-            currentHouse.setOccupied(true);
+            //checks if houses are near the edge of board
+            if(!(currentHouse.getX()<6 || currentHouse.getY()<6 || currentHouse.getY()>104 || currentHouse.getX()>104)) {
+                currentHouse.getRectangle().setFill(Color.web("#80bfff"));
+                currentHouses.add(currentHouse);
+                currentHouse.setOccupied(true);
+            }
         }
         boardOfNeighbors = new int[110][110];
     }
-
-    private int roundNearestTen(int num){
-        return (num/10)*10;
-    }
 }
 
+//DEBUG USE
             /* Show Matrix After Every Click (put in mousePressed())
                 for(int i=0 ;i<boardOfHouses.length; i++){
                     for (int j=0; j<boardOfHouses.length; j++){
