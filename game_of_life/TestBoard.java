@@ -4,7 +4,6 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Slider;
-import javafx.scene.input.DragEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -26,8 +25,8 @@ public class TestBoard extends Application {
     //Keeps track of the number of neighbors of each house respectively
     private int[][] boardOfNeighbors = new int[110][110];
 
-    //Houses that are currently on the board
-    private Stack<House> currentHouses = new Stack<>();
+    //Houses that are currently on the board, Linked list for removing houses
+    private LinkedList<House> currentHouses = new LinkedList<>();
     //Houses that I've checked so far (for counting)
     private Stack<House> checkedHouses = new Stack<>();
     //houses that will be in the new board;
@@ -96,10 +95,10 @@ public class TestBoard extends Application {
 
     //Events
         board.setOnMousePressed((MouseEvent e) -> {
-            leftMousePressed(e);
+            mousePressed(e);
         });
         board.setOnMouseDragged((MouseEvent e) ->{
-            leftMousePressed(e);
+            mousePressed(e);
         });
         clearBoardBtn.setOnAction((event) -> {
             clearBoard();
@@ -142,22 +141,39 @@ public class TestBoard extends Application {
         }
     }
 
-    private void leftMousePressed(MouseEvent e) {
+    private void mousePressed(MouseEvent e) {
         //Sets coordinate of mouse click to match x and y cords of the board
         int xCord = ((int) Math.round(e.getSceneX())+100)/10;
         //-77 here because the top of the actual page is 77 px tall
         int yCord = (((int) Math.round(e.getSceneY())-77)+100)/10;
-
-        House currentHouse = boardOfHouses[xCord][yCord];
-        //if house already there, then don't do anything
-        if(currentHouse.isOccupied())
+        //if mouse is valid, then proceed
+        if (!isValid(xCord, yCord))
             return;
-        //place "house" into the original board
-        currentHouse.setOccupied(true);
-        //color of rectangle
-        currentHouse.getRectangle().setFill(Color.web("#80bfff"));
-        //add "house" to stack for easy access when counting neighbors
-        currentHouses.add(currentHouse);
+        House currentHouse = boardOfHouses[xCord][yCord];
+
+        //Left click creates homes, right click deletes
+        if(e.isPrimaryButtonDown()) {
+            //if house already there, then don't do anything
+            if (currentHouse.isOccupied())
+                return;
+            //place "house" into the original board
+            currentHouse.setOccupied(true);
+            //color of rectangle
+            currentHouse.getRectangle().setFill(Color.web("#80bfff"));
+            //add "house" to stack for easy access when counting neighbors
+            currentHouses.add(currentHouse);
+        }
+
+        if(e.isSecondaryButtonDown()){
+            //if there is no house there, then return
+            if(!currentHouse.isOccupied())
+                return;
+            //take house off board
+            currentHouse.setOccupied(false);
+            currentHouse.getRectangle().setFill(Color.WHITE);
+            //take house out of current houses
+            currentHouses.remove(currentHouse);
+        }
     }
 
     //toggle play and pausing the game
@@ -280,24 +296,28 @@ public class TestBoard extends Application {
     }
 
 
-    private void fixBoard(){
+    private void fixBoard() {
         //uncheck all houses for next round
-        while(!checkedHouses.isEmpty()){
+        while (!checkedHouses.isEmpty()) {
             House tempHouse = checkedHouses.pop();
             tempHouse.setChecked(false);
             tempHouse.setOccupied(false);
         }
         //transfer all new houses into current houses for next run
-        while(!newHouses.isEmpty()){
+        while (!newHouses.isEmpty()) {
             House currentHouse = newHouses.pop();
             //checks if houses are near the edge of board
-            if(!(currentHouse.getX()<6 || currentHouse.getY()<6 || currentHouse.getY()>104 || currentHouse.getX()>104)) {
+            if (isValid(currentHouse.getX(), currentHouse.getY())) {
                 currentHouse.getRectangle().setFill(Color.web("#80bfff"));
                 currentHouses.add(currentHouse);
                 currentHouse.setOccupied(true);
             }
         }
         boardOfNeighbors = new int[110][110];
+    }
+
+    private boolean isValid(int xCord, int yCord) {
+        return !(xCord < 6 || yCord < 6 || yCord > 104 || xCord > 104);
     }
 }
 
