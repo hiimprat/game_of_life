@@ -1,4 +1,4 @@
-# game_of_life
+#John Conways Game of Life
 This is a game by John Conway in which houses on the grid can either live or die based on the amount of neighbors each space has.
 This creates many interesting patterns which can be found here: http://conwaylife.com/
 
