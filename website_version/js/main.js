@@ -9,12 +9,14 @@ var BOARD_WIDTH_MAX;
 var BOARD_HEIGHT_MAX;
 var LIVE_COLOR;
 var DEAD_COLOR;
+var CENTER_OF_CANVAS;
 
 //CANVAS PROPERTIES
 var canvas;
 var canvas2D;
 var canvasWidth;
 var canvasHeight;
+var currentCordOfCanvas;
 
 //BOARD PROPERTIES
 var liveCells;
@@ -26,7 +28,8 @@ var numCellsOnBoardHeight;
 var cellLength;
 
 /**
- * Initialize the game
+ * Initialize the game, assign the constants, start the board, and canvas,
+ * start the array of cells, and create the board.
  */
 function initGameOfLife() {
     initConstants();
@@ -50,6 +53,10 @@ function initConstants() {
     BOARD_HEIGHT_MAX = 512;
     LIVE_COLOR = "#00e68a";
     DEAD_COLOR = "#4d4d4d";
+    CENTER_OF_CANVAS = {
+        X: BOARD_WIDTH_MAX / 2,
+        Y: BOARD_HEIGHT_MAX / 2
+    }
 }
 
 /**
@@ -62,8 +69,14 @@ function initCanvas() {
     //DISABLE CONTEXT MENU FOR RIGHT CLICK/DRAG FUNCTION
     canvas.oncontextmenu = disableContextMenu;
 
-    //GET CANVAS2D
+    //GET CANVAS2D AND SET THE ORIGIN TO ZERO
     canvas2D = canvas.getContext("2d");
+    canvas2D.translate(CENTER_OF_CANVAS.X, CENTER_OF_CANVAS.Y);
+    canvas2D.save();
+    currentCordOfCanvas = {
+        x: CENTER_OF_CANVAS.X,
+        y: CENTER_OF_CANVAS.Y
+    }
 
     //SET FONT AND SIZE
     //canvas2D.font = "24px Arial";
@@ -93,13 +106,13 @@ function initArrayOfCells() {
     numCellsOnBoardWidth = BOARD_WIDTH_MAX / cellLength;
     numCellsOnBoardHeight = BOARD_HEIGHT_MAX / cellLength;
 
-    //CREATE 2-D ARRAY FOR EACH BOARD
+    //CREATE 2-D ARRAY FOR BOARD
     for (xIndex = 0; xIndex < BOARD_WIDTH_MAX; xIndex++) {
         currentBoardOfCells[xIndex] = new Array();
         for (yIndex = 0; yIndex < BOARD_HEIGHT_MAX; yIndex++) {
 
             //CREATE THE CELL THAT IS PLACED INTO THE ARRAY
-            var cell = initCells(xIndex,yIndex);
+            var cell = initCells(xIndex, yIndex);
             currentBoardOfCells[xIndex][yIndex] = cell;
         }
     }
@@ -109,30 +122,24 @@ function initArrayOfCells() {
  * Create cell objects so we only have to use one two datastructures and render
  * board in a quick way
  */
-function initCells(x,y) {
+function initCells(x, y) {
     return {
         isDead: DEAD_CELL,
         isChecked: UNCHECKED,
-        visualXCord:x,
-        visualYCord:y,
-        actualXCord:x,
-        actualYCord:y
+
+        //VISUAL COORDS ARE NOT INIALIZED YET
+        visualXCord: -1,
+        visualYCord: -1,
+        actualXCord: x,
+        actualYCord: y
     };
 }
 
 /**
- * create the first rendering of the board
+ * Creates a stack for live cells
  */
 function initBoard() {
     liveCells = [];
-    canvas2D.fillStyle = DEAD_COLOR;
-    for (xIndex = 0; xIndex < numCellsOnBoardWidth; xIndex++) {
-        for (yIndex = 0; yIndex < numCellsOnBoardHeight; yIndex++) {
-            var x = xIndex * cellLength;
-            var y = yIndex * cellLength;
-            canvas2D.fillRect(x, y, cellLength, cellLength);
-        }
-    }
 }
 
 /**
@@ -184,31 +191,46 @@ function disableContextMenu(event) {
  * CREATE OR KILL A CELL
  */
 function handleLeftMouseClick(event) {
-    // CALCULATE THE ROW,COL OF THE CLICK
+    //RESTORES CURRENT CENTER INCASE OF CHANGE FROM RIGHT CLICK DRAG
+    restoreThisCenter();
+
+    // GET THE COORS OF CLICK
     var canvasCoords = getRelativeCoords(event);
-    var clickX = Math.round(canvasCoords.x);
-    var clickY = Math.round(canvasCoords.y);
-    var roundedCord = roundOffCord(clickX,clickY);
+    var xClickRounded = Math.round(canvasCoords.x);
+    var yClickRounded = Math.round(canvasCoords.y);
+
+    //GET THE ACTUAL COORDINATE TO PUT INTO THE ARRAY FOR FINDING NEIGHBORS
+    var roundedCord = roundOffCord(xClickRounded, yClickRounded);
     var actualCord = findActualCord(roundedCord);
     var currentCell = currentBoardOfCells[actualCord.x][actualCord.y];
-    currentCell.actualXCord=actualCord.x;
-    currentCell.actualYCord=actualCord.y;
-    currentCell.visualXCord=clickX;
-    currentCell.visualYCord=clickY;
-    console.log(currentCell);
+    currentCell.actualXCord = actualCord.x;
+    currentCell.actualYCord = actualCord.y;
+
+    //I CAN GET THIS LATER FOR RENDERING THE RECTANGLE
+    var visualCord = findVisualCord(canvasCoords);
+    currentCell.visualXCord = visualCord.x;
+    currentCell.visualYCord = visualCord.y;
+
+    //TELL SHOW THAT THE CELL IS ALIVE
     currentCell.isDead = LIVE_CELL;
+
+    //ADD THE CELLS TO A LIVE CELL ARRAY
     liveCells.push(currentCell);
 
-    renderCell(clickX,clickY,LIVE_COLOR);
+    //RENDER THE CELL
+    renderCell(currentCell.visualXCord, currentCell.visualYCord, LIVE_COLOR);
 }
 
 /**
  *  CREATE OR KILL MULTIPLE CELLS
  */
 function handleLeftMouseDrag(event) {
+    //WHEN MOUSE MOVES, DRAW OR KILL CELLS
     canvas.onmousemove = handleLeftMouseClick;
-    canvas.onmouseup = function(){
-      canvas.onmousemove = null;
+
+    //WHEN IT RELEASES, THEN STOP HANDLING
+    canvas.onmouseup = function() {
+        canvas.onmousemove = null;
     }
 }
 
@@ -219,85 +241,153 @@ function handleMiddleMouseClick(event) {
     console.log("middleClicked");
 }
 
-//ORIGINAL CORDS FOR FINDING OUT HOW MUCH WE TRANSLATED
+//ORIGINAL CORDS OR MOUSE CLICK FOR FINDING OUT HOW MUCH WE TRANSLATED DURING
+//RIGHT MOUSE DRAG
 var startClickX;
 var startClickY;
+var finalClickX;
+var finalClickY;
 
 /**
  * MOVES THE BOARD IF NOT MAX SIZED
  */
 function handleRightMouseDrag(event) {
-  var startCanvasCord = getRelativeCoords(event);
-  startClickX = Math.round(startCanvasCord.x);
-  startClickY = Math.round(startCanvasCord.y);
-  canvas.onmousemove = helperHandleMouseDrag;
-  canvas.onmouseup = function(){
-    canvas.onmousemove = null;
-    canvas2D.setTransform(1,0,0,1,0,0);
-  }
+    //GET STARTING COORDINATE OF MOUSE
+    var startCanvasCord = getRelativeCoords(event);
+    startClickX = Math.round(startCanvasCord.x);
+    startClickY = Math.round(startCanvasCord.y);
+
+    //IF IT MOVES WHILE MOUSE IS DOWN, START HANDLING DRAG
+    canvas.onmousemove = helperHandleMouseDrag;
+
+    //STOP HANDLING DRAG IF MOUSE RELEASES
+    canvas.onmouseup = function() {
+        canvas.onmousemove = null;
+
+        //PUT THE CANVAS ORIGIN TO WHERE I FINISHED DRAGGING
+        setCanvasCenter(finalClickX-startClickX, finalClickY-startClickY);
+    }
 }
 
-function helperHandleMouseDrag(event){
-  var finalCanvasCords = getRelativeCoords(event);
-  var finalClickX = Math.round(finalCanvasCords.x);
-  var finalClickY = Math.round(finalCanvasCords.y);
+/**
+ * For each position the user drags to, get the new coordinates of it, and
+ * translate the rendered board to the amount the user drags
+ */
+function helperHandleMouseDrag(event) {
+    //GET NEW COORDINATE OF MOUSE
+    var finalCanvasCords = getRelativeCoords(event);
+    finalClickX = Math.round(finalCanvasCords.x);
+    finalClickY = Math.round(finalCanvasCords.y);
 
-  canvas2D.clearRect(0,0,canvasWidth,canvasHeight);
+    //CLEAR THE CURRENT CANVAS BC CAN'T ACCESS CHILDREN WITH CANVAS
+    //AS THE CELL LENGTH BECOMES LARGER, WE NEED TO CLEAR A BIGGER BOARD
+    canvas2D.clearRect(-(canvasWidth/2)*cellLength, -(canvasHeight/2)*cellLength, canvasWidth*cellLength, canvasHeight*cellLength);
 
+    //FOR EVERY LIVE CELL, RE-RENDER IT
+    for (index = 0; index < liveCells.length; index++) {
+        //GET CURRENT VISUAL CORD OF CELL
+        var currentCell = liveCells[index];
+        var xCurrentCell = currentCell.visualXCord;
+        var yCurrentCell = currentCell.visualYCord;
 
-  for(index = 0; index<liveCells.length; index++){
-    var currentCell = liveCells[index];
-    var xCurrentCell = currentCell.visualXCord;
-    var yCurrentCell = currentCell.visualYCord;
+        //FIND THE DISTANCE BETWEEN ORIGINAL MOUSE CLICK AND NEW MOUSE CLICK
+        var newX = Math.round(finalClickX - startClickX);
+        var newY = Math.round(finalClickY - startClickY);
 
-    var newX = Math.round(finalClickX-startClickX);
-    var newY = Math.round(finalClickY-startClickY);
+        //ROUND IT SO THAT IT TRANSLATES IN A NICE WAY WITH RESPECT
+        //TO THE CURRENT BOARD AND SIZE OF CELLS
+        var fixedCord = roundOffCord(newX, newY);
 
-    var fixedCord = roundOffCord(newX,newY);
+        //MOVE THE CANVAS TO IT'S ORIGINAL POSITION
+        restoreThisCenter();
 
-    canvas2D.setTransform(1,0,0,1,0,0);
-    canvas2D.translate(fixedCord.xFixed,fixedCord.yFixed);
-    renderCell(xCurrentCell,yCurrentCell,LIVE_COLOR);
-  }
+        //MOVE THE CANVAS TO THE NEW POSITION TO MOVE CELLS
+        canvas2D.translate(fixedCord.x, fixedCord.y);
+
+        //REDRAW THE CELLS IN THE SAME PLACE, BUT AFTER THE CANVAS IS MOVED
+        renderCell(xCurrentCell, yCurrentCell, LIVE_COLOR);
+    }
 }
 
+/**
+ * Set the canvas center position
+ */
+function setCanvasCenter(xCord, yCord) {
+    var roundedCoord = roundOffCord(xCord, yCord)
+    currentCordOfCanvas.x = currentCordOfCanvas.x + roundedCoord.x;
+    currentCordOfCanvas.y = currentCordOfCanvas.y + roundedCoord.y;
+    canvas2D.translate(roundedCoord.x,roundedCoord.y);
+    canvas2D.save();
+}
+
+function restoreThisCenter(){
+  canvas2D.setTransform(1, 0, 0, 1, 0, 0);
+  canvas2D.translate(currentCordOfCanvas.x, currentCordOfCanvas.y);
+}
 
 /**
  * Get relative coord of mouse where 0,0 is the top left corner of the canvas
  */
-function getRelativeCoords(event){
-    if (event.offsetX !== undefined && event.offsetY !== undefined)
-    {
-        return { x: event.offsetX, y: event.offsetY };
-    }
-    else
-    {
-        return { x: event.layerX, y: event.layerY };
-    }
-}
+ function getRelativeCoords(event) {
+   var canvasOffset=$("#game_of_life_canvas").offset();
+var offsetX=canvasOffset.left;
+var offsetY=canvasOffset.top;
+     return {
+       x:event.clientX-offsetX,
+       y:event.clientY-offsetY
+     };
+ }
 
 /**
  * Render the current cell;
  */
-function renderCell(xCord, yCord, color){
-  var cord = roundOffCord(xCord,yCord);
+function renderCell(xCord, yCord, color) {
+    var cord = roundOffCord(xCord, yCord);
 
-  canvas2D.fillStyle = color;
-  canvas2D.fillRect(cord.xFixed,cord.yFixed,cellLength,cellLength);
+    canvas2D.fillStyle = color;
+    canvas2D.fillRect(cord.x, cord.y, cellLength, cellLength);
 }
 
-function roundOffCord(xCord, yCord){
-  var xRemains = xCord % cellLength;
-  var yRemains = yCord % cellLength;
-  return {
-    xFixed: xCord-xRemains,
-    yFixed: yCord-yRemains
-  }
+/**
+ * round off the cell's x and y cords based on the cell length to assure for a
+ * flush canvas
+ */
+function roundOffCord(xCord, yCord) {
+    var xRemains = xCord % cellLength;
+    var yRemains = yCord % cellLength;
+
+    //JS DOES NOT MOD CORRECTLY, MUST PROVIDE SELF FIX FOR MODULUS NEG NUM
+    if(xCord<0){
+      xRemains = cellLength+xRemains;
+    }
+    if(yCord<0){
+      yRemains = cellLength+yRemains;
+    }
+
+    return {
+        x: xCord - xRemains,
+        y: yCord - yRemains
+    }
 }
 
-function findActualCord(roundedCord){
-  return {
-    x: roundedCord.xFixed/cellLength,
-    y: roundedCord.yFixed/cellLength
+/**
+ * get the actual coordinates to put into the array
+ */
+function findActualCord(roundedCord) {
+    var numXCellsFromCenter = ((roundedCord.x - currentCordOfCanvas.x) / cellLength);
+    var numYCellsFromCenter = ((roundedCord.y - currentCordOfCanvas.y) / cellLength);
+    return {
+        x: currentCordOfCanvas.x + numXCellsFromCenter,
+        y: currentCordOfCanvas.y + numYCellsFromCenter
+    }
+}
+
+/**
+ * find the visual coordinate of the object
+ */
+function findVisualCord(roundedCanvasCord){
+  return{
+    x:roundedCanvasCord.x-currentCordOfCanvas.x,
+    y:roundedCanvasCord.y-currentCordOfCanvas.y
   }
 }
