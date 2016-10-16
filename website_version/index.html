@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Conway's Game of Life</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+
+<body>
+
+  <!-- This is the toolbar with buttons for starting, pausing,
+and resetting the simulation, as well as containing a drop
+down list for selecting patterns to add to the game.
+-->
+  <div id="toolbar">
+    <input id="start_button" type="button" value="Start" />
+    <input id="pause_button" type="button" value="Pause" />
+    <input id="reset_button" type="button" value="Reset" />
+
+    <input id="dec_fps_button" type="button" value="FPS-" />
+    <input id="inc_fps_button" type="button" value="FPS+" />
+    <input id="dec_cell_length_button" type="button" value="Cell Length-" />
+    <input id="inc_cell_length_button" type="button" value="Cell Length+" />
+  </div>
+
+  <canvas id="game_of_life_canvas" width="1024" height="512">
+  </canvas>
+
+</body>
+<link rel="stylesheet" type="text/css" href="./css/style.css" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="./js/main.js"></script>
+
+<script>
+  initGameOfLife();
+</script>
+
+</html>
