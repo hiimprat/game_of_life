@@ -183,19 +183,46 @@ function handleMouseEvents(event) {
     }
 }
 
+// used to keep track of zooming to animate only when I am allowed to zoom
+var zoomed;
 /**
  * Handle the mouse scrolling for zooming in and out
  */
 function handleMouseWheelEvent(e) {
+    //GET MOUSE AND CORD BEFORE ZOOM SO WE CAN DETECH WICH CELL TO ZOOM IN ON
+    //GET CURRENT PLACE OF MOUSE AND ROUND IT.
+    var canvasCoords = getRelativeCoords(event);
+    var xClickRounded = Math.round(canvasCoords.x);
+    var yClickRounded = Math.round(canvasCoords.y);
+
+    //ROUND NEW CORD TO MATCH THE CELL LENGTH AND WIDTH THEN GET
+    //THE ACTUAL CORD OF CELL
+    var roundedCord = roundOffCord(xClickRounded, yClickRounded);
+    var actualCord = findActualCord(roundedCord);
+
     // cross-browser wheel delta
     var e = window.event || e; // old IE support
+
+    //FIND CHANGE IN MOUSE
     var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+
+    //ZOOM AND GET RESULT (FALSE IF DID NOT ZOOM BC ALREADY MAXED)
     if (delta > 0) {
-        increaseCellLength();
+        zoomed = increaseCellLength();
     } else {
-        decreaseCellLength();
+        zoomed = decreaseCellLength();
     }
-    setCanvasCenter(CENTER_OF_CANVAS.X,CENTER_OF_CANVAS.Y);
+
+    //IF I AM ALREADY ZOOMED TO THE MAX, KEEP MY CANVAS AT CURRENT POINT else
+    //SHIFT THE CENTER TO THE ACTUAL POINT OF INTEREST
+    if (zoomed == true) {
+        zoomToCurrentSpot(actualCord.x, actualCord.y);
+        zoomed = false;
+    } else {
+        setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
+    }
+
+    //setCanvasCenter(CENTER_OF_CANVAS.X, CENTER_OF_CANVAS.Y);
     renderAllCells();
 }
 
@@ -222,16 +249,16 @@ function handleLeftMouseClick(event) {
     var roundedCord = roundOffCord(xClickRounded, yClickRounded);
     var actualCord = findActualCord(roundedCord);
     var currentCell = currentBoardOfCells[actualCord.x][actualCord.y];
-    currentCell.actualXCord = actualCord.x;
-    currentCell.actualYCord = actualCord.y;
 
-    //TELL SHOW THAT THE CELL IS ALIVE
-    currentCell.isDead = LIVE_CELL;
+    //if the cell is make it live
+    if (currentCell.isDead == DEAD_CELL) {
+        currentCell.isDead = LIVE_CELL;
 
-    console.log("actual "+currentCell.actualXCord, currentCell.actualYCord);
+        //ADD THE CELLS TO A LIVE CELL ARRAY FOR QUICK NEIGHBOR PROCESSESING
+        liveCells.push(currentCell);
+    }
 
-    //ADD THE CELLS TO A LIVE CELL ARRAY
-    liveCells.push(currentCell);
+    //console.log("actual "+currentCell.actualXCord, currentCell.actualYCord);
 
     //RENDER THE CELL
     renderCell(currentCell.actualXCord, currentCell.actualYCord, LIVE_COLOR);
@@ -294,6 +321,7 @@ function handleRightMouseDrag(event) {
             y: finalClickY - startClickY
         });
         translateCanvasCenter(translateAmount.x, translateAmount.y);
+        console.log(currentCordOfCanvas.x, currentCordOfCanvas.y);
     }
 }
 
@@ -457,8 +485,8 @@ function getRelativeCoords(event) {
  * Render the current cell
  */
 function renderCell(xCord, yCord, color) {
-    xCord = (xCord - CENTER_OF_CANVAS.X)*(cellLength);
-    yCord = (yCord - CENTER_OF_CANVAS.Y)*(cellLength);
+    xCord = (xCord - CENTER_OF_CANVAS.X) * (cellLength);
+    yCord = (yCord - CENTER_OF_CANVAS.Y) * (cellLength);
 
     canvas2D.fillStyle = color;
     canvas2D.fillRect(xCord, yCord, cellLength, cellLength);
@@ -467,14 +495,14 @@ function renderCell(xCord, yCord, color) {
 /**
  * Render all live cells
  */
-function renderAllCells(){
-  canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
-  for (index = 0; index < liveCells.length; index++) {
-      //GET CURRENT CORD OF CELL
-      var currentCell = liveCells[index];
-      var xCurrentCell = currentCell.actualXCord;
-      var yCurrentCell = currentCell.actualYCord;
-      renderCell(xCurrentCell, yCurrentCell, LIVE_COLOR);
+function renderAllCells() {
+    canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
+    for (index = 0; index < liveCells.length; index++) {
+        //GET CURRENT CORD OF CELL
+        var currentCell = liveCells[index];
+        var xCurrentCell = currentCell.actualXCord;
+        var yCurrentCell = currentCell.actualYCord;
+        renderCell(xCurrentCell, yCurrentCell, LIVE_COLOR);
     }
 }
 
@@ -516,7 +544,7 @@ function findActualCord(roundedCord) {
 }
 
 /**
- * change the cell length
+ * change the cell length and everything affected by it's length
  */
 function increaseCellLength() {
     if (cellLength != MAX_CELL_LENGTH) {
@@ -525,7 +553,9 @@ function increaseCellLength() {
         canvasHeight = canvasHeight * CELL_MULTIPLYER;
         numCellsOnBoardWidth = numCellsOnBoardWidth / CELL_MULTIPLYER;
         numCellsOnBoardHeight = numCellsOnBoardHeight / CELL_MULTIPLYER;
+        return true;
     }
+    return false;
 }
 
 function decreaseCellLength() {
@@ -535,5 +565,35 @@ function decreaseCellLength() {
         canvasHeight = canvasHeight / CELL_MULTIPLYER;
         numCellsOnBoardWidth = numCellsOnBoardWidth * CELL_MULTIPLYER;
         numCellsOnBoardHeight = numCellsOnBoardHeight * CELL_MULTIPLYER;
+        return true;
+    }
+    return false;
+}
+/**
+ * when the user scrolls, zoom to the current center of the screen;
+ */
+function zoomToCurrentSpot(x, y) {
+    //SET MY CANVAS TO CENTER
+    setCanvasCenter(CENTER_OF_CANVAS.X, CENTER_OF_CANVAS.Y);
+
+    //IF MY CELL LENGTH IS ALLOWED
+    if (cellLength != MIN_CELL_LENGTH) {
+
+        //TRANSLATE THE CENTER TO THE DELTA OF THE CENTER TO THE ACTUAL CELL
+        //THEN MULTIPLY IT BY THE CELL LENGTH TO SHIFT THE CENTER THE APPROPRIATE
+        //SPOT ON THE CANVAS
+        translateCanvasCenter((CENTER_OF_CANVAS.X - x) * cellLength, (CENTER_OF_CANVAS.Y - y) * cellLength);
+
+        //DEFINE SHIFTING
+        var shiftRight = {x:10,y:0};
+        var shiftLeft = {x:-10,y:0};
+        var shiftUp = {x:0,y:10};
+        var shiftDown = {X:0,y:-10};
+
+        //CHECK IF I CAN MOVE IN ANY DIRECTION TO CORRECT FOR ZOOMING OUT OF CANVAS
+        checkLimitedMovement(shiftRight);
+        checkLimitedMovement(shiftLeft);
+        checkLimitedMovement(shiftUp);
+        checkLimitedMovement(shiftDown);
     }
 }
