@@ -23,12 +23,17 @@ var currentCordOfCanvas;
 
 //BOARD PROPERTIES
 var liveCells;
+var newLiveCells;
+var checkedCells;
 var currentBoardOfCells;
 var numCellsOnBoardWidth;
 var numCellsOnBoardHeight;
 
 //CELL PROPERTIES
 var cellLength;
+
+//timer for each cycle of game
+var timer;
 
 /**
  * Initialize the game, assign the constants, start the board, and canvas,
@@ -109,6 +114,10 @@ function initEventHandlers() {
     // IE 6/7/8
     else canvas.attachEvent("onmousewheel", handleMouseWheelEvent);
 
+    //for debuging
+    //document.getElementById("start_button").onclick = startGameOfLife;
+    document.getElementById("start_button").onclick = startGameOfLife;
+    document.getElementById("pause_button").onclick = pauseGameOfLife;
 }
 
 /**
@@ -121,9 +130,9 @@ function initArrayOfCells() {
     numCellsOnBoardHeight = BOARD_HEIGHT_MAX / cellLength;
 
     //CREATE 2-D ARRAY FOR BOARD
-    for (xIndex = 0; xIndex < BOARD_WIDTH_MAX; xIndex++) {
+    for (var xIndex = 0; xIndex < BOARD_WIDTH_MAX; xIndex++) {
         currentBoardOfCells[xIndex] = new Array();
-        for (yIndex = 0; yIndex < BOARD_HEIGHT_MAX; yIndex++) {
+        for (var yIndex = 0; yIndex < BOARD_HEIGHT_MAX; yIndex++) {
 
             //CREATE THE CELL THAT IS PLACED INTO THE ARRAY
             var cell = initCells(xIndex, yIndex);
@@ -140,8 +149,8 @@ function initCells(x, y) {
     return {
         isDead: DEAD_CELL,
         isChecked: UNCHECKED,
-        actualXCord: x,
-        actualYCord: y
+        x: x,
+        y: y
     };
 }
 
@@ -150,6 +159,8 @@ function initCells(x, y) {
  */
 function initBoard() {
     liveCells = [];
+    newLiveCells = [];
+    checkedCells = [];
 }
 
 /**
@@ -258,10 +269,8 @@ function handleLeftMouseClick(event) {
         liveCells.push(currentCell);
     }
 
-    //console.log("actual "+currentCell.actualXCord, currentCell.actualYCord);
-
     //RENDER THE CELL
-    renderCell(currentCell.actualXCord, currentCell.actualYCord, LIVE_COLOR);
+    renderCell(currentCell.x, currentCell.y, LIVE_COLOR);
 }
 
 /**
@@ -321,7 +330,7 @@ function handleRightMouseDrag(event) {
             y: finalClickY - startClickY
         });
         translateCanvasCenter(translateAmount.x, translateAmount.y);
-        console.log(currentCordOfCanvas.x, currentCordOfCanvas.y);
+        //console.log(currentCordOfCanvas.x, currentCordOfCanvas.y);
     }
 }
 
@@ -340,11 +349,11 @@ function helperHandleMouseDrag(event) {
     canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
 
     //FOR EVERY LIVE CELL, RE-RENDER IT
-    for (index = 0; index < liveCells.length; index++) {
+    for (var index = 0; index < liveCells.length; index++) {
         //GET CURRENT CORD OF CELL
         var currentCell = liveCells[index];
-        var xCurrentCell = currentCell.actualXCord;
-        var yCurrentCell = currentCell.actualYCord;
+        var xCurrentCell = currentCell.x;
+        var yCurrentCell = currentCell.y;
 
         //FIND THE DISTANCE BETWEEN ORIGINAL MOUSE CLICK AND NEW MOUSE CLICK
         var newX = Math.round(finalClickX - startClickX);
@@ -497,11 +506,11 @@ function renderCell(xCord, yCord, color) {
  */
 function renderAllCells() {
     canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
-    for (index = 0; index < liveCells.length; index++) {
+    for (var index = 0; index < liveCells.length; index++) {
         //GET CURRENT CORD OF CELL
         var currentCell = liveCells[index];
-        var xCurrentCell = currentCell.actualXCord;
-        var yCurrentCell = currentCell.actualYCord;
+        var xCurrentCell = currentCell.x;
+        var yCurrentCell = currentCell.y;
         renderCell(xCurrentCell, yCurrentCell, LIVE_COLOR);
     }
 }
@@ -585,10 +594,22 @@ function zoomToCurrentSpot(x, y) {
         translateCanvasCenter((CENTER_OF_CANVAS.X - x) * cellLength, (CENTER_OF_CANVAS.Y - y) * cellLength);
 
         //DEFINE SHIFTING
-        var shiftRight = {x:10,y:0};
-        var shiftLeft = {x:-10,y:0};
-        var shiftUp = {x:0,y:10};
-        var shiftDown = {X:0,y:-10};
+        var shiftRight = {
+            x: 10,
+            y: 0
+        };
+        var shiftLeft = {
+            x: -10,
+            y: 0
+        };
+        var shiftUp = {
+            x: 0,
+            y: 10
+        };
+        var shiftDown = {
+            X: 0,
+            y: -10
+        };
 
         //CHECK IF I CAN MOVE IN ANY DIRECTION TO CORRECT FOR ZOOMING OUT OF CANVAS
         checkLimitedMovement(shiftRight);
@@ -596,4 +617,168 @@ function zoomToCurrentSpot(x, y) {
         checkLimitedMovement(shiftUp);
         checkLimitedMovement(shiftDown);
     }
+}
+
+/** ---------------------- GAME OF LIFE FUNCTIONS START --------------------------- **/
+/**
+ * start the game of life
+ */
+function startGameOfLife() {
+    // CLEAR OUT ANY OLD TIMER
+    if (timer !== null) {
+        clearInterval(timer);
+    }
+
+    // START A NEW TIMER
+    timer = setInterval(stepGameOfLife, 300);
+}
+
+/**
+ * updates and renders game based on time interval or fps
+ */
+function stepGameOfLife() {
+    // FIRST PERFORM GAME LOGIC
+    updateGame();
+}
+
+function updateGame() {
+    for (var cellIndex = 0; cellIndex < liveCells.length; cellIndex++) {
+        var cell = liveCells[cellIndex];
+        if (cell.isChecked == UNCHECKED) {
+            check(cell);
+        }
+    }
+
+    while (!arrayIsEmpty(liveCells)) {
+        var currCellToKill = liveCells.pop();
+        currCellToKill.isDead = DEAD_CELL;
+        currCellToKill.isChecked = UNCHECKED;
+        //console.log("KILL AT "+currCellToKill.x,currCellToKill.y);
+        renderCell(currCellToKill.x, currCellToKill.y, DEAD_COLOR);
+    }
+
+    //console.log("newLiveCells " + newLiveCells);
+    while (!arrayIsEmpty(newLiveCells)) {
+        var currCellToBirth = newLiveCells.pop();
+        currCellToBirth.isDead = LIVE_CELL;
+        currCellToBirth.isChecked = UNCHECKED;
+        liveCells.push(currCellToBirth);
+        //console.log("BRING TO LIFE AT "+currCellToBirth.x,currCellToBirth.y);
+        renderCell(currCellToBirth.x, currCellToBirth.y, LIVE_COLOR);
+    }
+
+    while(!arrayIsEmpty(checkedCells)){
+      checkedCells.pop().isChecked = UNCHECKED;
+    }
+}
+
+
+
+function check(cell) {
+    for (var xIndex = -1; xIndex <= 1; xIndex++) {
+        for (var yIndex = -1; yIndex <= 1; yIndex++) {
+            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
+            if (checkingCell.isChecked == UNCHECKED) {
+                calcNumNeigh(checkingCell);
+            }
+        }
+    }
+}
+
+function calcNumNeigh(cell) {
+    cell.isChecked = CHECKED;
+    checkedCells.push(cell);
+    var numNeigh = 0;
+    for (var xIndex = -1; xIndex <= 1; xIndex++) {
+        for (var yIndex = -1; yIndex <= 1; yIndex++) {
+            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
+            if (checkingCell.isDead == LIVE_CELL && cell != checkingCell) {
+                numNeigh++;
+                if (checkingCell.isChecked == UNCHECKED) {
+                    check(checkingCell);
+                }
+            }
+        }
+    }
+    checkIfValidCell(numNeigh,cell);
+}
+
+function checkIfValidCell(numNeigh, cell){
+  //console.log("CELLx,y,neigh "+cell.x, cell.y, numNeigh);
+  if (numNeigh == 2 || numNeigh == 3) {
+      if (cell.isDead == LIVE_CELL || numNeigh == 3){
+          newLiveCells.push(cell);
+        }
+  }
+}
+
+/*
+function check(cell) {
+  //console.log("checking this "+cell.x,cell.y);
+    var numNeigh = 0;
+    for (var xIndex = -1; xIndex <= 1; xIndex++) {
+        for (var yIndex = -1; yIndex <= 1; yIndex++) {
+            //console.log(xIndex,yIndex);
+            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
+            //console.log("cell currently checking from first "+ checkingCell.x, checkingCell.y);
+            //console.log("is my cell equal? "+ cell == checkingCell);
+            if (cell != checkingCell) {
+                if (checkingCell.isDead == LIVE_CELL){
+                    numNeigh++;
+                  }
+                if (checkingCell.isDead == DEAD_CELL){
+                    checkAround(checkingCell);
+                  }
+            }
+        }
+    }
+    //console.log("finish first cell");
+    findNewCells(numNeigh, cell);
+}
+
+function checkAround(cell) {
+    if (cell.isChecked == CHECKED) {
+        return;
+    }
+    //console.log("checking around this "+cell.x, cell.y);
+    var numNeigh = 0;
+    for (var xIndex = -1; xIndex <= 1; xIndex++) {
+        for (var yIndex = -1; yIndex <= 1; yIndex++) {
+            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
+            if (cell != checkingCell) {
+                if (checkingCell.isDead == LIVE_CELL){
+                    numNeigh++;
+                  }
+            }
+        }
+    }
+    findNewCells(numNeigh, cell);
+}
+
+function findNewCells(numNeigh, cell) {
+    cell.isChecked = CHECKED;
+    console.log("CELLx,y,neigh "+cell.x, cell.y, numNeigh);
+    if (numNeigh == 2 || numNeigh == 3) {
+        if (cell.isDead == LIVE_CELL || numNeigh == 3){
+            newLiveCells.push(cell);
+          }
+    }
+}
+*/
+
+function arrayIsEmpty(array) {
+    if (array === undefined || array.length == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function pauseGameOfLife() {
+    // TELL JavaScript TO STOP RUNNING THE LOOP
+    clearInterval(timer);
+
+    // AND THIS IS HOW WE'LL KEEP TRACK OF WHETHER
+    // THE SIMULATION IS RUNNING OR NOT
+    timer = null;
 }
