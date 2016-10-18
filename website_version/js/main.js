@@ -3,6 +3,9 @@ var DEAD_CELL;
 var LIVE_CELL;
 var DEFAULT_NUM_NEIGH;
 var DEFAULT_CELL_LENGTH;
+var MAX_CELL_LENGTH;
+var MIN_CELL_LENGTH;
+var CELL_MULTIPLYER;
 var CHECKED;
 var UNCHECKED;
 var BOARD_WIDTH_MAX;
@@ -47,6 +50,9 @@ function initConstants() {
     DEAD_CELL = 0;
     DEFAULT_NUM_NEIGH = 0;
     DEFAULT_CELL_LENGTH = 8;
+    MAX_CELL_LENGTH = 32;
+    MIN_CELL_LENGTH = 1;
+    CELL_MULTIPLYER = 2;
     CHECKED = true;
     UNCHECKED = false;
     BOARD_WIDTH_MAX = 1024;
@@ -94,7 +100,15 @@ function initEventHandlers() {
     canvas.onmousedown = handleMouseEvents;
 
     //RESPOND TO MOUSE WHEEL FOR ZOOMING IN OUT OF BOARD
-    canvas.onmousewheel = handleMouseWheelEvent;
+    if (canvas.addEventListener) {
+        //IE9, Chrome, Safari, Opera
+        canvas.addEventListener("mousewheel", handleMouseWheelEvent, false);
+        // Firefox
+        canvas.addEventListener("DOMMouseScroll", handleMouseWheelEvent, false);
+    }
+    // IE 6/7/8
+    else canvas.attachEvent("onmousewheel", handleMouseWheelEvent);
+
 }
 
 /**
@@ -126,10 +140,6 @@ function initCells(x, y) {
     return {
         isDead: DEAD_CELL,
         isChecked: UNCHECKED,
-
-        //VISUAL COORDS ARE NOT INIALIZED YET
-        visualXCord: -1,
-        visualYCord: -1,
         actualXCord: x,
         actualYCord: y
     };
@@ -176,8 +186,17 @@ function handleMouseEvents(event) {
 /**
  * Handle the mouse scrolling for zooming in and out
  */
-function handleMouseWheelEvent(event) {
-    console.log("Zoon");
+function handleMouseWheelEvent(e) {
+    // cross-browser wheel delta
+    var e = window.event || e; // old IE support
+    var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+    if (delta > 0) {
+        increaseCellLength();
+    } else {
+        decreaseCellLength();
+    }
+    setCanvasCenter(CENTER_OF_CANVAS.X,CENTER_OF_CANVAS.Y);
+    renderAllCells();
 }
 
 /**
@@ -206,21 +225,16 @@ function handleLeftMouseClick(event) {
     currentCell.actualXCord = actualCord.x;
     currentCell.actualYCord = actualCord.y;
 
-    //I CAN GET THIS LATER FOR RENDERING THE RECTANGLE
-    var visualCord = findVisualCord(canvasCoords);
-    currentCell.visualXCord = visualCord.x;
-    currentCell.visualYCord = visualCord.y;
-
     //TELL SHOW THAT THE CELL IS ALIVE
     currentCell.isDead = LIVE_CELL;
 
-    console.log(currentCell.actualXCord, currentCell.actualYCord);
+    console.log("actual "+currentCell.actualXCord, currentCell.actualYCord);
 
     //ADD THE CELLS TO A LIVE CELL ARRAY
     liveCells.push(currentCell);
 
     //RENDER THE CELL
-    renderCell(currentCell.visualXCord, currentCell.visualYCord, LIVE_COLOR);
+    renderCell(currentCell.actualXCord, currentCell.actualYCord, LIVE_COLOR);
 }
 
 /**
@@ -243,7 +257,7 @@ function handleMiddleMouseClick(event) {
     console.log("middleClicked");
 }
 
-//ORIGINAL CORDS OR MOUSE CLICK FOR FINDING OUT HOW MUCH WE TRANSLATED DURING
+//FIXME ORIGINAL CORDS OR MOUSE CLICK FOR FINDING OUT HOW MUCH WE TRANSLATED DURING
 //RIGHT MOUSE DRAG
 var startClickX;
 var startClickY;
@@ -261,6 +275,7 @@ function handleRightMouseDrag(event) {
     startClickX = Math.round(startCanvasCord.x);
     startClickY = Math.round(startCanvasCord.y);
 
+    //GET THE ENDING POINT OF THE MOUSE IN CASE DRAG HAS NOT HAPPENEND
     var finalCanvasCords = getRelativeCoords(event);
     finalClickX = Math.round(finalCanvasCords.x);
     finalClickY = Math.round(finalCanvasCords.y);
@@ -274,7 +289,10 @@ function handleRightMouseDrag(event) {
 
         //PUT THE CANVAS ORIGIN TO WHERE I FINISHED DRAGGING IF
         //I AM ALLOWED TO DRAG IT THERE
-        var translateAmount = calcTranslateAmount({x:finalClickX - startClickX, y:finalClickY - startClickY});
+        var translateAmount = calcTranslateAmount({
+            x: finalClickX - startClickX,
+            y: finalClickY - startClickY
+        });
         translateCanvasCenter(translateAmount.x, translateAmount.y);
     }
 }
@@ -295,10 +313,10 @@ function helperHandleMouseDrag(event) {
 
     //FOR EVERY LIVE CELL, RE-RENDER IT
     for (index = 0; index < liveCells.length; index++) {
-        //GET CURRENT VISUAL CORD OF CELL
+        //GET CURRENT CORD OF CELL
         var currentCell = liveCells[index];
-        var xCurrentCell = currentCell.visualXCord;
-        var yCurrentCell = currentCell.visualYCord;
+        var xCurrentCell = currentCell.actualXCord;
+        var yCurrentCell = currentCell.actualYCord;
 
         //FIND THE DISTANCE BETWEEN ORIGINAL MOUSE CLICK AND NEW MOUSE CLICK
         var newX = Math.round(finalClickX - startClickX);
@@ -329,29 +347,29 @@ function helperHandleMouseDrag(event) {
 /**
  * THE AMOUNT I TRANSLATE MY POINT BASED ON THE LIMITED MOVEMENT
  */
-function calcTranslateAmount(cord){
-  //IF BOTH LIMITED, DONT SHIFT
-  if (movementLimitedX && movementLimitedY) {
-    cord.x = 0;
-    cord.y = 0;
-  } else
-  //IF X LIMITED, ONLY CHANGE Y
-  if (movementLimitedX) {
-      cord.x = 0;
-  } else
-  //IF Y LIMITED, CHANGE ONLY X
-  if (movementLimitedY) {
-      cord.y = 0;
-  }
-  return cord;
+function calcTranslateAmount(cord) {
+    //IF BOTH LIMITED, DONT SHIFT
+    if (movementLimitedX && movementLimitedY) {
+        cord.x = 0;
+        cord.y = 0;
+    } else
+    //IF X LIMITED, ONLY CHANGE Y
+    if (movementLimitedX) {
+        cord.x = 0;
+    } else
+    //IF Y LIMITED, CHANGE ONLY X
+    if (movementLimitedY) {
+        cord.y = 0;
+    }
+    return cord;
 }
 
 /**
  * CHECK BOTH X AND Y TO SEE IF IT'S LIMITED IN EITHER WAY
  */
-function checkLimitedMovement(cord){
-  checkLimitedMovementX(cord);
-  checkLimitedMovementY(cord);
+function checkLimitedMovement(cord) {
+    checkLimitedMovementX(cord);
+    checkLimitedMovementY(cord);
 }
 
 /**
@@ -360,11 +378,16 @@ function checkLimitedMovement(cord){
 function checkLimitedMovementX(distanceTraveledByCenter) {
     //GETS NUM OF CELLS FROM THE CENTER OF MY PHYSICAL CANVAS TO THE POINT OF THE ACTUAL CANVAS
     var numCellsAwayFromCenter = (currentCordOfCanvas.x + distanceTraveledByCenter.x - CENTER_OF_CANVAS.X) / cellLength;
-    if (Math.abs(numCellsAwayFromCenter) >= 448) {
+
+    //MAX NUM CELLS AWAY FROM CENTER
+    var maxCellsAwayFromCenter = (canvasWidth / 2 - CENTER_OF_CANVAS.X) / cellLength;
+    if (Math.abs(numCellsAwayFromCenter) >= maxCellsAwayFromCenter) {
+
+        //SETS THE MAX/ MIN POSSIBLE CORRDINATE BASED ON THE GIVEN LENGTH OF A CELL
         if (numCellsAwayFromCenter > 0) {
-            setCanvasCenter(4096, currentCordOfCanvas.y);
+            setCanvasCenter(maxCellsAwayFromCenter * cellLength + CENTER_OF_CANVAS.X, currentCordOfCanvas.y);
         } else {
-            setCanvasCenter(-3072, currentCordOfCanvas.y);
+            setCanvasCenter(CENTER_OF_CANVAS.X - maxCellsAwayFromCenter * cellLength, currentCordOfCanvas.y);
         }
         movementLimitedX = true;
     } else {
@@ -378,11 +401,16 @@ function checkLimitedMovementX(distanceTraveledByCenter) {
 function checkLimitedMovementY(distanceTraveledByCenter) {
     //GETS NUM OF CELLS FROM THE CENTER OF MY PHYSICAL CANVAS TO THE POINT OF THE ACTUAL CANVAS
     var numCellsAwayFromCenter = (currentCordOfCanvas.y + distanceTraveledByCenter.y - CENTER_OF_CANVAS.Y) / cellLength;
-    if (Math.abs(numCellsAwayFromCenter) >= 224) {
+
+    //MAX NUM CELLS AWAY FROM CENTER
+    var maxCellsAwayFromCenter = (canvasHeight / 2 - CENTER_OF_CANVAS.Y) / cellLength;
+
+    //SETS THE MAX/ MIN POSSIBLE CORRDINATE BASED ON THE GIVEN LENGTH OF A CELL
+    if (Math.abs(numCellsAwayFromCenter) >= maxCellsAwayFromCenter) {
         if (numCellsAwayFromCenter > 0) {
-            setCanvasCenter(currentCordOfCanvas.x, 2048);
+            setCanvasCenter(currentCordOfCanvas.x, maxCellsAwayFromCenter * cellLength + CENTER_OF_CANVAS.Y);
         } else {
-            setCanvasCenter(currentCordOfCanvas.x, -1536);
+            setCanvasCenter(currentCordOfCanvas.x, CENTER_OF_CANVAS.Y - maxCellsAwayFromCenter * cellLength);
         }
         movementLimitedY = true;
     } else {
@@ -426,13 +454,28 @@ function getRelativeCoords(event) {
 }
 
 /**
- * Render the current cell;
+ * Render the current cell
  */
 function renderCell(xCord, yCord, color) {
-    var cord = roundOffCord(xCord, yCord);
+    xCord = (xCord - CENTER_OF_CANVAS.X)*(cellLength);
+    yCord = (yCord - CENTER_OF_CANVAS.Y)*(cellLength);
 
     canvas2D.fillStyle = color;
-    canvas2D.fillRect(cord.x, cord.y, cellLength, cellLength);
+    canvas2D.fillRect(xCord, yCord, cellLength, cellLength);
+}
+
+/**
+ * Render all live cells
+ */
+function renderAllCells(){
+  canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
+  for (index = 0; index < liveCells.length; index++) {
+      //GET CURRENT CORD OF CELL
+      var currentCell = liveCells[index];
+      var xCurrentCell = currentCell.actualXCord;
+      var yCurrentCell = currentCell.actualYCord;
+      renderCell(xCurrentCell, yCurrentCell, LIVE_COLOR);
+    }
 }
 
 /**
@@ -473,11 +516,24 @@ function findActualCord(roundedCord) {
 }
 
 /**
- * find the visual coordinate of the object
+ * change the cell length
  */
-function findVisualCord(roundedCanvasCord) {
-    return {
-        x: roundedCanvasCord.x - currentCordOfCanvas.x,
-        y: roundedCanvasCord.y - currentCordOfCanvas.y
+function increaseCellLength() {
+    if (cellLength != MAX_CELL_LENGTH) {
+        cellLength = cellLength * CELL_MULTIPLYER;
+        canvasWidth = canvasWidth * CELL_MULTIPLYER;
+        canvasHeight = canvasHeight * CELL_MULTIPLYER;
+        numCellsOnBoardWidth = numCellsOnBoardWidth / CELL_MULTIPLYER;
+        numCellsOnBoardHeight = numCellsOnBoardHeight / CELL_MULTIPLYER;
+    }
+}
+
+function decreaseCellLength() {
+    if (cellLength != MIN_CELL_LENGTH) {
+        cellLength = cellLength / CELL_MULTIPLYER;
+        canvasWidth = canvasWidth / CELL_MULTIPLYER;
+        canvasHeight = canvasHeight / CELL_MULTIPLYER;
+        numCellsOnBoardWidth = numCellsOnBoardWidth * CELL_MULTIPLYER;
+        numCellsOnBoardHeight = numCellsOnBoardHeight * CELL_MULTIPLYER;
     }
 }
