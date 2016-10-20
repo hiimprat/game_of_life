@@ -149,6 +149,7 @@ function initCells(x, y) {
     return {
         isDead: DEAD_CELL,
         isChecked: UNCHECKED,
+        numNeigh: DEFAULT_NUM_NEIGH,
         x: x,
         y: y
     };
@@ -329,8 +330,8 @@ function handleRightMouseDrag(event) {
             x: finalClickX - startClickX,
             y: finalClickY - startClickY
         });
+        setCanvasCenter(currentCordOfCanvas.x,currentCordOfCanvas.y);
         translateCanvasCenter(translateAmount.x, translateAmount.y);
-        //console.log(currentCordOfCanvas.x, currentCordOfCanvas.y);
     }
 }
 
@@ -346,39 +347,31 @@ function helperHandleMouseDrag(event) {
 
     //CLEAR THE CURRENT CANVAS BC CAN'T ACCESS CHILDREN WITH CANVAS
     //AS THE CELL LENGTH BECOMES LARGER, WE NEED TO CLEAR A BIGGER BOARD
-    canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
+    clearCanvas();
 
-    //FOR EVERY LIVE CELL, RE-RENDER IT
-    for (var index = 0; index < liveCells.length; index++) {
-        //GET CURRENT CORD OF CELL
-        var currentCell = liveCells[index];
-        var xCurrentCell = currentCell.x;
-        var yCurrentCell = currentCell.y;
+    //FIND THE DISTANCE BETWEEN ORIGINAL MOUSE CLICK AND NEW MOUSE CLICK
+    var newX = Math.round(finalClickX - startClickX);
+    var newY = Math.round(finalClickY - startClickY);
 
-        //FIND THE DISTANCE BETWEEN ORIGINAL MOUSE CLICK AND NEW MOUSE CLICK
-        var newX = Math.round(finalClickX - startClickX);
-        var newY = Math.round(finalClickY - startClickY);
+    //ROUND IT SO THAT IT TRANSLATES IN A NICE WAY WITH RESPECT
+    //TO THE CURRENT BOARD AND SIZE OF CELLS
+    var fixedCord = roundOffCord(newX, newY);
 
-        //ROUND IT SO THAT IT TRANSLATES IN A NICE WAY WITH RESPECT
-        //TO THE CURRENT BOARD AND SIZE OF CELLS
-        var fixedCord = roundOffCord(newX, newY);
+    //MOVE THE CANVAS TO IT'S ORIGINAL POSITION
+    setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
 
-        //MOVE THE CANVAS TO IT'S ORIGINAL POSITION
-        setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
+    //CHECK TO SEE IF I CAN MOVE THE CANVAS
+    checkLimitedMovement(fixedCord);
 
-        //CHECK TO SEE IF I CAN MOVE THE CANVAS
-        checkLimitedMovement(fixedCord);
+    //FIND THE AMOUNT TO TRANSLATE THE CANVAS BASED ON THE LIMITED
+    //MOVEMENTS OF THE USER
+    var translateAmount = calcTranslateAmount(fixedCord);
 
-        //FIND THE AMOUNT TO TRANSLATE THE CANVAS BASED ON THE LIMITED
-        //MOVEMENTS OF THE USER
-        var translateAmount = calcTranslateAmount(fixedCord);
+    //MOVE THE CANVAS TO THE NEW POSITION TO MOVE CELLS IF IM NOT NEAR THE EDGE
+    canvas2D.translate(translateAmount.x, translateAmount.y);
 
-        //MOVE THE CANVAS TO THE NEW POSITION TO MOVE CELLS IF IM NOT NEAR THE EDGE
-        canvas2D.translate(translateAmount.x, translateAmount.y);
-
-        //REDRAW THE CELLS IN THE SAME PLACE, BUT AFTER THE CANVAS IS MOVED
-        renderCell(xCurrentCell, yCurrentCell, LIVE_COLOR);
-    }
+    //RENDER ALL CELLS
+    renderAllCells();
 }
 
 /**
@@ -505,7 +498,7 @@ function renderCell(xCord, yCord, color) {
  * Render all live cells
  */
 function renderAllCells() {
-    canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
+    clearCanvas();
     for (var index = 0; index < liveCells.length; index++) {
         //GET CURRENT CORD OF CELL
         var currentCell = liveCells[index];
@@ -531,9 +524,12 @@ function roundOffCord(xCord, yCord) {
         yRemains = cellLength + yRemains;
     }
 
+    //RETURN NOW ROUNDED CORRDS
+    var roundedX = xCord - xRemains;
+    var roundedY = yCord - yRemains;
     return {
-        x: xCord - xRemains,
-        y: yCord - yRemains
+        x: roundedX,
+        y: roundedY
     }
 }
 
@@ -619,6 +615,10 @@ function zoomToCurrentSpot(x, y) {
     }
 }
 
+function clearCanvas() {
+    canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
+}
+
 /** ---------------------- GAME OF LIFE FUNCTIONS START --------------------------- **/
 /**
  * start the game of life
@@ -639,133 +639,153 @@ function startGameOfLife() {
 function stepGameOfLife() {
     // FIRST PERFORM GAME LOGIC
     updateGame();
+
+    //THEN RENDER THE GAME
+    renderGame();
 }
 
+/**
+ * UPDATES THE CURRENT BOARD OF CELLS BASED ON THE RULES OF THE GAME
+ */
 function updateGame() {
-    for (var cellIndex = 0; cellIndex < liveCells.length; cellIndex++) {
-        var cell = liveCells[cellIndex];
+    //GO THROUGH ALL CURRENT LIVE CELLS
+    while (!arrayIsEmpty(liveCells)) {
+        var cell = liveCells.pop();
+
+        //ONLY CHECK THE CELL IF IT'S UNCEHCKED
         if (cell.isChecked == UNCHECKED) {
             check(cell);
         }
+
     }
 
-    while (!arrayIsEmpty(liveCells)) {
-        var currCellToKill = liveCells.pop();
-        currCellToKill.isDead = DEAD_CELL;
-        currCellToKill.isChecked = UNCHECKED;
-        //console.log("KILL AT "+currCellToKill.x,currCellToKill.y);
-        renderCell(currCellToKill.x, currCellToKill.y, DEAD_COLOR);
-    }
+    //AFTER CHECKING ALL CELLS, I HAVE A LIST OF CELLS THAT HAVE
+    //THEIR ASSOCIATED NUMBER OF NIEGHBORS
+    while (!arrayIsEmpty(checkedCells)) {
+        var currentCell = checkedCells.pop();
 
-    //console.log("newLiveCells " + newLiveCells);
-    while (!arrayIsEmpty(newLiveCells)) {
-        var currCellToBirth = newLiveCells.pop();
-        currCellToBirth.isDead = LIVE_CELL;
-        currCellToBirth.isChecked = UNCHECKED;
-        liveCells.push(currCellToBirth);
-        //console.log("BRING TO LIFE AT "+currCellToBirth.x,currCellToBirth.y);
-        renderCell(currCellToBirth.x, currCellToBirth.y, LIVE_COLOR);
-    }
+        //FOR EACH CELL, IF IT'S VALID, THEN BRING IT TO LIFE, ELSE
+        //KILL IT IF IT WAS ALREADY ALIVE
+        if (checkIfLiveCell(currentCell)) {
 
-    while(!arrayIsEmpty(checkedCells)){
-      checkedCells.pop().isChecked = UNCHECKED;
+            //ADD IT TO NEXT ROUND OF LIVE CELLS
+            liveCells.push(currentCell);
+            currentCell.isDead = LIVE_CELL;
+        } else {
+            currentCell.isDead = DEAD_CELL;
+        }
+        currentCell.isChecked = UNCHECKED;
+        currentCell.numNeigh = DEFAULT_NUM_NEIGH;
     }
 }
 
+/**
+ * RENDERS ALL CURENT LIVE CELLS
+ */
+function renderGame() {
+    //CLEAR THE CANVS
+    clearCanvas();
 
+    //RENDER THE CELLS
+    renderAllCells();
+}
 
+/**
+ * GOES THROUGH EACH CELL THAT I MUST CHECK (every live cell and it's neighbors)
+ * FOR THE NEXT BOARD
+ */
 function check(cell) {
+    //TAKE CURRENT LIVE CELL AND CHECK A ONE CELL RADIUS AROUND IT
     for (var xIndex = -1; xIndex <= 1; xIndex++) {
         for (var yIndex = -1; yIndex <= 1; yIndex++) {
-            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
-            if (checkingCell.isChecked == UNCHECKED) {
-                calcNumNeigh(checkingCell);
+
+            //CHECK IF CELL IS VALID / ON THE BOARD
+            if (isValidCell(cell.x + xIndex, cell.y + yIndex)) {
+                var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
+
+                //IF THE CELL IS UNCHECKED
+                if (checkingCell.isChecked == UNCHECKED) {
+
+                    //FIND THE NUM OF NEIGHBORS
+                    calcNumNeigh(checkingCell);
+                }
             }
+
         }
     }
 }
 
+/**
+ * Calculate the number of neighbors of the cell
+ */
 function calcNumNeigh(cell) {
+    //CHECK IT SO THAT IT PREVENTS THE Check() METHOD FROM
+    //CALLING COUND ON THE SAME CELL
     cell.isChecked = CHECKED;
+
+    //ADD IT TO THE ARRAY OF ALREADY CHECKED CELLS FOR FUTURE PROCESSING
     checkedCells.push(cell);
-    var numNeigh = 0;
+
+    //CHECK A ONE BLOCK RADIUS AROUND THIS CELL
     for (var xIndex = -1; xIndex <= 1; xIndex++) {
         for (var yIndex = -1; yIndex <= 1; yIndex++) {
-            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
-            if (checkingCell.isDead == LIVE_CELL && cell != checkingCell) {
-                numNeigh++;
-                if (checkingCell.isChecked == UNCHECKED) {
-                    check(checkingCell);
+            if (isValidCell(cell.x + xIndex, cell.y + yIndex)) {
+
+                //CHECK IF CELL IS VALID / ON THE BOARD
+                var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
+
+                //IF IT"S A LIVE CELL AND NOT ITSELF, THEN IT HAS A NEIGHBOR
+                if (checkingCell.isDead == LIVE_CELL && cell != checkingCell) {
+                    cell.numNeigh++;
+
+                    //IF IT's A LIVE CELL AND NOT ITSELF, AND IS NOT CHECKED YET, CHECK IT
+                    if (checkingCell.isChecked == UNCHECKED) {
+                        check(checkingCell);
+                    }
                 }
             }
         }
     }
-    checkIfValidCell(numNeigh,cell);
 }
 
-function checkIfValidCell(numNeigh, cell){
-  //console.log("CELLx,y,neigh "+cell.x, cell.y, numNeigh);
-  if (numNeigh == 2 || numNeigh == 3) {
-      if (cell.isDead == LIVE_CELL || numNeigh == 3){
-          newLiveCells.push(cell);
-        }
-  }
-}
+/**
+ * Check to see if my current cell is allowed to live
+ */
+function checkIfLiveCell(cell) {
+    var numNeigh = cell.numNeigh;
 
-/*
-function check(cell) {
-  //console.log("checking this "+cell.x,cell.y);
-    var numNeigh = 0;
-    for (var xIndex = -1; xIndex <= 1; xIndex++) {
-        for (var yIndex = -1; yIndex <= 1; yIndex++) {
-            //console.log(xIndex,yIndex);
-            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
-            //console.log("cell currently checking from first "+ checkingCell.x, checkingCell.y);
-            //console.log("is my cell equal? "+ cell == checkingCell);
-            if (cell != checkingCell) {
-                if (checkingCell.isDead == LIVE_CELL){
-                    numNeigh++;
-                  }
-                if (checkingCell.isDead == DEAD_CELL){
-                    checkAround(checkingCell);
-                  }
-            }
-        }
-    }
-    //console.log("finish first cell");
-    findNewCells(numNeigh, cell);
-}
-
-function checkAround(cell) {
-    if (cell.isChecked == CHECKED) {
-        return;
-    }
-    //console.log("checking around this "+cell.x, cell.y);
-    var numNeigh = 0;
-    for (var xIndex = -1; xIndex <= 1; xIndex++) {
-        for (var yIndex = -1; yIndex <= 1; yIndex++) {
-            var checkingCell = currentBoardOfCells[cell.x + xIndex][cell.y + yIndex];
-            if (cell != checkingCell) {
-                if (checkingCell.isDead == LIVE_CELL){
-                    numNeigh++;
-                  }
-            }
-        }
-    }
-    findNewCells(numNeigh, cell);
-}
-
-function findNewCells(numNeigh, cell) {
-    cell.isChecked = CHECKED;
-    console.log("CELLx,y,neigh "+cell.x, cell.y, numNeigh);
+    //If current cell has 2 or three neighbors
     if (numNeigh == 2 || numNeigh == 3) {
-        if (cell.isDead == LIVE_CELL || numNeigh == 3){
-            newLiveCells.push(cell);
-          }
+
+        //If it has three neighbors, it's alive, it it has two neighbors
+        //and it is not alive already, then it cannot be given life
+        if (cell.isDead == LIVE_CELL || numNeigh == 3) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Check if the cell is within the board
+ */
+function isValidCell(x, y) {
+    // IS IT OUTSIDE THE GRID?
+    if ((x < 0) ||
+        (y < 0) ||
+        (x >= BOARD_WIDTH_MAX) ||
+        (y >= BOARD_HEIGHT_MAX)) {
+        return false;
+    }
+    // IT'S INSIDE THE GRID
+    else {
+        return true;
     }
 }
-*/
 
+/**
+ * return if the current array is empty
+ */
 function arrayIsEmpty(array) {
     if (array === undefined || array.length == 0) {
         return true;
@@ -774,6 +794,9 @@ function arrayIsEmpty(array) {
     }
 }
 
+/**
+ * pause the game, clear the timer
+ */
 function pauseGameOfLife() {
     // TELL JavaScript TO STOP RUNNING THE LOOP
     clearInterval(timer);
