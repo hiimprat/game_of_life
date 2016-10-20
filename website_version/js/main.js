@@ -35,6 +35,9 @@ var cellLength;
 //timer for each cycle of game
 var timer;
 
+//slider
+var speedSlider;
+
 /**
  * Initialize the game, assign the constants, start the board, and canvas,
  * start the array of cells, and create the board.
@@ -101,6 +104,8 @@ function initCanvas() {
  * Initialize the event handlers to get user feedback
  */
 function initEventHandlers() {
+    initSpeedSlider();
+
     //RESPOND TO MOUSE CLICKS/DRAGS ON THE CANVAS, GET THE TYPE OF CLICK
     canvas.onmousedown = handleMouseEvents;
 
@@ -114,10 +119,25 @@ function initEventHandlers() {
     // IE 6/7/8
     else canvas.attachEvent("onmousewheel", handleMouseWheelEvent);
 
-    //for debuging
-    //document.getElementById("start_button").onclick = startGameOfLife;
     document.getElementById("start_button").onclick = startGameOfLife;
     document.getElementById("pause_button").onclick = pauseGameOfLife;
+      /*
+    document.getElementById("reset_button").onclick = resetGameOfLife;
+    document.getElementById("draw_button").onclick = setDrawOn;
+    document.getElementById("erase_button").onclick = setEraseOn;
+    document.getElementById("drag_button").onclick = setDragOn;
+    document.getElementById("zoom_in_button").onclick = zoomIn;
+    document.getElementById("zoom_out_button").onclick = zoomOut;
+    */
+
+    speedSlider.on("slide", handleSliderEvent);
+}
+
+/**
+ * initializer the slider that will change the FPS of the simulation
+ */
+function initSpeedSlider() {
+    speedSlider = new Slider("#speed_slider");
 }
 
 /**
@@ -193,6 +213,15 @@ function handleMouseEvents(event) {
         default:
             alert('You have a strange Mouse!');
     }
+}
+
+/**
+ * handle the slider event, in this case, change the FPS and update the span
+ * holding the value for the slider FPS
+ */
+
+function handleSliderEvent() {
+    document.getElementById("ex6SliderVal").innerHTML = speedSlider.getValue();
 }
 
 // used to keep track of zooming to animate only when I am allowed to zoom
@@ -330,7 +359,7 @@ function handleRightMouseDrag(event) {
             x: finalClickX - startClickX,
             y: finalClickY - startClickY
         });
-        setCanvasCenter(currentCordOfCanvas.x,currentCordOfCanvas.y);
+        setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
         translateCanvasCenter(translateAmount.x, translateAmount.y);
     }
 }
@@ -630,7 +659,7 @@ function startGameOfLife() {
     }
 
     // START A NEW TIMER
-    timer = setInterval(stepGameOfLife, 300);
+    timer = setInterval(stepGameOfLife, 100);
 }
 
 /**
@@ -705,6 +734,12 @@ function check(cell) {
 
                 //IF THE CELL IS UNCHECKED
                 if (checkingCell.isChecked == UNCHECKED) {
+                    //CHECK IT SO THAT IT PREVENTS THE Check() METHOD FROM
+                    //CALLING COUND ON THE SAME CELL
+                    checkingCell.isChecked = CHECKED;
+
+                    //ADD IT TO THE ARRAY OF ALREADY CHECKED CELLS FOR FUTURE PROCESSING
+                    checkedCells.push(checkingCell);
 
                     //FIND THE NUM OF NEIGHBORS
                     calcNumNeigh(checkingCell);
@@ -719,13 +754,6 @@ function check(cell) {
  * Calculate the number of neighbors of the cell
  */
 function calcNumNeigh(cell) {
-    //CHECK IT SO THAT IT PREVENTS THE Check() METHOD FROM
-    //CALLING COUND ON THE SAME CELL
-    cell.isChecked = CHECKED;
-
-    //ADD IT TO THE ARRAY OF ALREADY CHECKED CELLS FOR FUTURE PROCESSING
-    checkedCells.push(cell);
-
     //CHECK A ONE BLOCK RADIUS AROUND THIS CELL
     for (var xIndex = -1; xIndex <= 1; xIndex++) {
         for (var yIndex = -1; yIndex <= 1; yIndex++) {
