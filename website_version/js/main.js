@@ -13,6 +13,13 @@ var BOARD_HEIGHT_MAX;
 var LIVE_COLOR;
 var DEAD_COLOR;
 var CENTER_OF_CANVAS;
+var DRAW_MODE;
+var ERASE_MODE;
+var DRAG_MODE;
+var ZOOM_IN_MODE;
+var ZOOM_OUT_MODE;
+var DEFAULT_FPS;
+var MILLISECONDS_IN_ONE_SECOND;
 
 //CANVAS PROPERTIES
 var canvas;
@@ -34,9 +41,11 @@ var cellLength;
 
 //timer for each cycle of game
 var timer;
+var currentFPS;
 
-//slider
+//inputs
 var speedSlider;
+var leftMouseProperty;
 
 /**
  * Initialize the game, assign the constants, start the board, and canvas,
@@ -71,6 +80,14 @@ function initConstants() {
         X: BOARD_WIDTH_MAX / 2,
         Y: BOARD_HEIGHT_MAX / 2
     }
+    DRAW_MODE = "DRAW_MODE";
+    ERASE_MODE = "ERASE_MODE";
+    DRAG_MODE = "DRAG_MODE";
+    ZOOM_IN_MODE = "ZOOM_IN_MODE";
+    ZOOM_OUT_MODE = "ZOOM_OUT_MODE";
+    DEFAULT_FPS = 15;
+    MILLISECONDS_IN_ONE_SECOND = 1000;
+
 }
 
 /**
@@ -104,6 +121,7 @@ function initCanvas() {
  * Initialize the event handlers to get user feedback
  */
 function initEventHandlers() {
+    leftMouseProperty = DRAW_MODE;
     initSpeedSlider();
 
     //RESPOND TO MOUSE CLICKS/DRAGS ON THE CANVAS, GET THE TYPE OF CLICK
@@ -121,14 +139,12 @@ function initEventHandlers() {
 
     document.getElementById("start_button").onclick = startGameOfLife;
     document.getElementById("pause_button").onclick = pauseGameOfLife;
-      /*
     document.getElementById("reset_button").onclick = resetGameOfLife;
     document.getElementById("draw_button").onclick = setDrawOn;
     document.getElementById("erase_button").onclick = setEraseOn;
     document.getElementById("drag_button").onclick = setDragOn;
-    document.getElementById("zoom_in_button").onclick = zoomIn;
-    document.getElementById("zoom_out_button").onclick = zoomOut;
-    */
+    document.getElementById("zoom_in_button").onclick = setZoomIn;
+    document.getElementById("zoom_out_button").onclick = setZoomOut;
 
     speedSlider.on("slide", handleSliderEvent);
 }
@@ -138,6 +154,7 @@ function initEventHandlers() {
  */
 function initSpeedSlider() {
     speedSlider = new Slider("#speed_slider");
+    currentFPS = DEFAULT_FPS;
 }
 
 /**
@@ -185,6 +202,42 @@ function initBoard() {
 }
 
 /**
+ * Set the current state of the mouse to be drawing
+ */
+function setDrawOn() {
+    leftMouseProperty = DRAW_MODE;
+}
+
+/**
+ * Set the current state of the mouse to be erasing
+ */
+function setEraseOn() {
+    leftMouseProperty = ERASE_MODE;
+}
+
+/**
+ * Set the current state of the mouse to be dragging
+ */
+function setDragOn() {
+    leftMouseProperty = DRAG_MODE;
+}
+
+/**
+ * set Current state of mouse to be zoomIn
+ */
+function setZoomIn() {
+    leftMouseProperty = ZOOM_IN_MODE;
+}
+
+/**
+ * set current state of mouse to be zoomOut
+ */
+function setZoomOut() {
+    leftMouseProperty = ZOOM_OUT_MODE;
+}
+
+
+/**
  * Handles the clicks and drags on canvas. Calls functions
  * based on mouse button and drag or click
  */
@@ -221,11 +274,11 @@ function handleMouseEvents(event) {
  */
 
 function handleSliderEvent() {
-    document.getElementById("ex6SliderVal").innerHTML = speedSlider.getValue();
+    currentFPS = speedSlider.getValue();
+    document.getElementById("speed_slider_value").innerHTML = currentFPS;
+    changeFPS();
 }
 
-// used to keep track of zooming to animate only when I am allowed to zoom
-var zoomed;
 /**
  * Handle the mouse scrolling for zooming in and out
  */
@@ -249,22 +302,10 @@ function handleMouseWheelEvent(e) {
 
     //ZOOM AND GET RESULT (FALSE IF DID NOT ZOOM BC ALREADY MAXED)
     if (delta > 0) {
-        zoomed = increaseCellLength();
+        zoomIn(actualCord);
     } else {
-        zoomed = decreaseCellLength();
+        zoomOut(actualCord);
     }
-
-    //IF I AM ALREADY ZOOMED TO THE MAX, KEEP MY CANVAS AT CURRENT POINT else
-    //SHIFT THE CENTER TO THE ACTUAL POINT OF INTEREST
-    if (zoomed == true) {
-        zoomToCurrentSpot(actualCord.x, actualCord.y);
-        zoomed = false;
-    } else {
-        setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
-    }
-
-    //setCanvasCenter(CENTER_OF_CANVAS.X, CENTER_OF_CANVAS.Y);
-    renderAllCells();
 }
 
 /**
@@ -278,8 +319,11 @@ function disableContextMenu(event) {
  * CREATE OR KILL A CELL
  */
 function handleLeftMouseClick(event) {
-    //RESTORES CURRENT CENTER INCASE OF CHANGE FROM RIGHT CLICK DRAG
-    setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
+    //check for if user selected dragging
+    if (leftMouseProperty == DRAG_MODE) {
+        handleRightMouseDrag(event);
+        return;
+    }
 
     // GET THE COORS OF CLICK
     var canvasCoords = getRelativeCoords(event);
@@ -289,18 +333,45 @@ function handleLeftMouseClick(event) {
     //GET THE ACTUAL COORDINATE TO PUT INTO THE ARRAY FOR FINDING NEIGHBORS
     var roundedCord = roundOffCord(xClickRounded, yClickRounded);
     var actualCord = findActualCord(roundedCord);
-    var currentCell = currentBoardOfCells[actualCord.x][actualCord.y];
 
-    //if the cell is make it live
-    if (currentCell.isDead == DEAD_CELL) {
-        currentCell.isDead = LIVE_CELL;
-
-        //ADD THE CELLS TO A LIVE CELL ARRAY FOR QUICK NEIGHBOR PROCESSESING
-        liveCells.push(currentCell);
+    if (leftMouseProperty == ZOOM_IN_MODE) {
+        zoomIn(actualCord);
+        return;
     }
 
-    //RENDER THE CELL
-    renderCell(currentCell.x, currentCell.y, LIVE_COLOR);
+    if (leftMouseProperty == ZOOM_OUT_MODE) {
+        zoomOut(actualCord);
+        return;
+    }
+
+    var currentCell = currentBoardOfCells[actualCord.x][actualCord.y];
+
+    //if user wants to draw:
+    if (leftMouseProperty == DRAW_MODE) {
+        //if the cell is dead make it live
+        if (currentCell.isDead == DEAD_CELL) {
+            currentCell.isDead = LIVE_CELL;
+
+            //ADD THE CELLS TO A LIVE CELL ARRAY FOR QUICK NEIGHBOR PROCESSESING
+            liveCells.push(currentCell);
+
+            //RENDER THE CELL
+            renderCell(currentCell.x, currentCell.y, LIVE_COLOR);
+        }
+        //if user wants to erase
+    } else {
+        //if the cell is alive, kill it
+        if (currentCell.isDead == LIVE_CELL) {
+            currentCell.isDead == DEAD_CELL;
+
+            //remove it from array of live cells
+            removeFromLiveCells(currentCell);
+
+            //render it dead
+            renderCell(currentCell.x, currentCell.y, DEAD_COLOR);
+        }
+    }
+
 }
 
 /**
@@ -538,6 +609,16 @@ function renderAllCells() {
 }
 
 /**
+ * remove a given cell from the array of live cells
+ */
+function removeFromLiveCells(cell) {
+    var index = liveCells.indexOf(cell);
+    if (index > -1) {
+        liveCells.splice(index, 1);
+    }
+}
+
+/**
  * round off the cell's x and y cords based on the cell length to assure for a
  * flush canvas
  */
@@ -603,6 +684,37 @@ function decreaseCellLength() {
     }
     return false;
 }
+
+/**
+ * zoom in to current location of mouse
+ */
+function zoomIn(actualCord) {
+    var zoomed = increaseCellLength();
+    zoomInOutHelper(zoomed, actualCord);
+}
+
+/**
+ * zoom out to from current location of mouse
+ */
+function zoomOut(actualCord) {
+    var zoomed = decreaseCellLength();
+    zoomInOutHelper(zoomed, actualCord);
+}
+
+/**
+ * This uses the limitations of the board to see where i can zoom
+ */
+function zoomInOutHelper(zoomed, actualCord) {
+    //IF I AM ALREADY ZOOMED TO THE MAX, KEEP MY CANVAS AT CURRENT POINT else
+    //SHIFT THE CENTER TO THE ACTUAL POINT OF INTEREST
+    if (zoomed == true) {
+        zoomToCurrentSpot(actualCord.x, actualCord.y);
+    } else {
+        setCanvasCenter(currentCordOfCanvas.x, currentCordOfCanvas.y);
+    }
+    renderAllCells();
+}
+
 /**
  * when the user scrolls, zoom to the current center of the screen;
  */
@@ -659,7 +771,7 @@ function startGameOfLife() {
     }
 
     // START A NEW TIMER
-    timer = setInterval(stepGameOfLife, 100);
+    timer = setInterval(stepGameOfLife, MILLISECONDS_IN_ONE_SECOND/currentFPS);
 }
 
 /**
@@ -832,4 +944,25 @@ function pauseGameOfLife() {
     // AND THIS IS HOW WE'LL KEEP TRACK OF WHETHER
     // THE SIMULATION IS RUNNING OR NOT
     timer = null;
+}
+
+/**
+ * resets the board of cells
+ */
+function resetGameOfLife() {
+    while (!arrayIsEmpty(liveCells)) {
+        var currentCell = liveCells.pop();
+        currentCell.isDead = DEAD_CELL;
+        currentCell.isChecked = UNCHECKED;
+        currentCell.numNeigh = DEFAULT_NUM_NEIGH;
+        clearCanvas();
+    }
+}
+
+/**
+ * changes the framerate of the game
+ */
+function changeFPS(){
+    pauseGameOfLife();
+    startGameOfLife();
 }
