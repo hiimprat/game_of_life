@@ -3,7 +3,7 @@ This is a game by John Conway in which houses on the grid can either live or die
 This creates many interesting patterns which can be found here: http://conwaylife.com/
 
 
-THE WEBSITE VERSION USING JAVASCRIPT (CURRENTLY THE MAIN PROJECT):
+#Javascript implementation (most recent):
 By default:
 
 -Left Click/Drag to add houses
@@ -19,7 +19,7 @@ Using the toolbar you can do all of the above using just the left mouse button f
 The grid is locked at 1028 * 512 at all zoom levels. This gives enough room for drawing meticulously as well as watching your creation at a small scale.
 
 
-THE JAVAFX VERSION (FIRST AND SMALL PROJECT, OUT PHASED):
+#JavaFX implementation (not updated):
 
 -Left Click/Drag to add houses
 
