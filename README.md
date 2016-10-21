@@ -1,6 +1,7 @@
-#John Conways Game of Life
+#Simulation of John Conways Game of Life
 This is a game by John Conway in which houses on the grid can either live or die based on the amount of neighbors each space has.
 This creates many interesting patterns which can be found here: http://conwaylife.com/
+
 
 THE WEBSITE VERSION USING JAVASCRIPT (CURRENTLY THE MAIN PROJECT):
 By default:
@@ -16,6 +17,7 @@ By default:
 Using the toolbar you can do all of the above using just the left mouse button for users with no scroll or right click.
 
 The grid is locked at 1028 * 512 at all zoom levels. This gives enough room for drawing meticulously as well as watching your creation at a small scale.
+
 
 THE JAVAFX VERSION (FIRST AND SMALL PROJECT, OUT PHASED):
 
