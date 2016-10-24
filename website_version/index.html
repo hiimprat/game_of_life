@@ -12,13 +12,12 @@
 
 <body>
   <div class="content">
-
     <div class="container">
-      <!-- This is the toolbar with buttons for starting, pausing,
-and resetting the simulation, as well as containing a drop
-down list for selecting patterns to add to the game.
--->
       <div id="spacer"></div>
+      <!-- This is the toolbar with buttons for starting, pausing,
+        and resetting the simulation, as well as containing a drop
+        down list for selecting patterns to add to the game.
+        -->
       <div class="inner_content" id="board">
         <div id="toolbar">
 
@@ -48,6 +47,7 @@ down list for selecting patterns to add to the game.
           </div>
           </span>
 
+          <!--FPS slider-->
           <span id="speed_functions">
           <button id="speed_down_slider" type="button" class="btn btn-secondary" data-toggle="tooltip" data-placement="top" title="Slow down cycle of board"><i class="fa fa-minus" aria-hidden="true"></i></button>
           <input id="speed_slider" type="text" data-slider-min="1" data-slider-max="30" data-slider-step="1" data-slider-value="15" />
@@ -56,76 +56,118 @@ down list for selecting patterns to add to the game.
           </span>
         </div>
 
+        <!--the canvas itself for rendering the game-->
         <canvas id="game_of_life_canvas" width="1024" height="512">
         </canvas>
 
+        <!--info under the canvas for useful stats-->
         <div id="info">
           <span class="info_tag" id="generation_value_label">Generation: <span id="generation_value">0</span></span>
           <span class="info_tag" id="cells_alive_label">Live Cells: <span id="cells_alive_value">0</span></span>
           <span class="info_tag" id="cells_killed_label">Total Cells Killed: <span id="cells_killed_value">0</span></span>
           <span class="info_tag" id="cells_birthed_label">Total Cells Given Life: <span id="generation_value">0</span></span>
         </div>
+        <!--inner options end-->
       </div>
 
       <div id="spacer"></div>
 
+      <!--controls and buttons information tab-->
       <div class="container inner_content">
         <div>
           <h1 class="description_header">Controls</h1>
           <hr />
-            <div class="row">
-              <div class="col-md-3">
-                <h3 id = "inner_Default_Header">By Default</h3>
-              </div>
-              <div class="col-md-9 ">
-                <ul id = "list_options" >
-                  <li>Left click is to draw onto the board</li>
-                  <li>Right click is to drag the board around</li>
-                  <li>The mouse wheel can be used to zoom in or out of where ever the mouse currently is on the board</li>
-                </ul>
-              </div>
+          <div class="row">
+            <div class="col-md-3">
+              <h3 id="inner_Default_Header">By Default</h3>
+            </div>
+            <div class="col-md-9 ">
+              <ul id="list_options">
+                <li>Left click is to draw onto the board</li>
+                <li>Right click is to drag the board around</li>
+                <li>The mouse wheel can be used to zoom in or out of where ever the mouse currently is on the board</li>
+              </ul>
+            </div>
+          </div>
+
+          <hr />
+
+          <div class="row">
+            <div class="col-md-3">
+              <h3 id="inner_Button_Header">The Input</h3>
+            </div>
+            <div id="icon_options" class="col-md-9 ">
+              <div>The Core Game Functions:</div>
+              <div class="icon_descriptions"><i class="fa fa-play" aria-hidden="true"></i> Starts or plays the game at the current state of the board</div>
+              <div class="icon_descriptions"><i class="fa fa-pause" aria-hidden="true"></i> Pauses the game at the current state of the board</div>
+              <div class="icon_descriptions"><i class="fa fa-refresh" aria-hidden="true"></i> Clears entire board and pauses the board</div>
+              <div class="icon_descriptions"><i class="fa fa-minus" aria-hidden="true"></i> Slow the update rate of the board or simulation by 1 FPS</div>
+              <div class="icon_descriptions"><i class="fa fa-plus" aria-hidden="true"></i> Speed up the update rate of the board or simulation by 1 FPS</div>
+              <div class="note"> Note: You can also adjust the FPS of the board or simulation by dragging the slider</div>
+
+              <br>
+
+              <div>Editing the Cells on the Board:</div>
+              <div class="icon_descriptions"><i class="fa fa-paint-brush" aria-hidden="true"></i> Draw or bring cells to life on the board</div>
+              <div class="icon_descriptions"><i class="fa fa-eraser" aria-hidden="true"></i> Erase of kill cells on the board</div>
+              <div class="icon_descriptions"><i class="fa fa-hand-pointer-o" aria-hidden="true"></i> Drag the board around given you are within the board's limits</div>
+              <div class="icon_descriptions"><i class="fa fa-search-plus" aria-hidden="true"></i> Zoom in on where you click</div>
+              <div class="icon_descriptions"><i class="fa fa-search-minus" aria-hidden="true"></i> Zoom out on where you click</div>
+              <div class="note">Note: The editing options will work in conjunction with both the mouse wheel and right mouse functions as listed above</div>
             </div>
 
-            <hr />
-
-            <div class="row">
-              <div class="col-md-3">
-                <h3 id = "inner_Button_Header">The Input</h3>
-              </div>
-              <div id = "icon_options" class="col-md-9 ">
-                <div>The Core Game Functions:</div>
-                <div class = "icon_descriptions"><i class="fa fa-play" aria-hidden="true"></i> Starts or plays the game at the current state of the board</div>
-                <div class = "icon_descriptions"><i class="fa fa-pause" aria-hidden="true"></i> Pauses the game at the current state of the board</div>
-                <div class = "icon_descriptions"><i class="fa fa-refresh" aria-hidden="true"></i> Clears entire board and pauses the board</div>
-                <div class = "icon_descriptions"><i class="fa fa-minus" aria-hidden="true"></i> Slow the update rate of the board or simulation by 1 FPS</div>
-                <div class = "icon_descriptions"><i class="fa fa-plus" aria-hidden="true"></i> Speed up the update rate of the board or simulation by 1 FPS</div>
-                <div class = "note"> Note: You can also adjust the FPS of the board or simulation by dragging the slider</div>
-
-                <br>
-
-                <div>Editing the Cells on the Board:</div>
-                <div class = "icon_descriptions"><i class="fa fa-paint-brush" aria-hidden="true"></i> Draw or bring cells to life on the board</div>
-                <div class = "icon_descriptions"><i class="fa fa-eraser" aria-hidden="true"></i> Erase of kill cells on the board</div>
-                <div class = "icon_descriptions"><i class="fa fa-hand-pointer-o" aria-hidden="true"></i> Drag the board around given you are within the board's limits</div>
-                <div class = "icon_descriptions"><i class="fa fa-search-plus" aria-hidden="true"></i> Zoom in on where you click</div>
-                <div class = "icon_descriptions"><i class="fa fa-search-minus" aria-hidden="true"></i> Zoom out on where you click</div>
-                <div class="note">Note: The editing options will work in conjunction with both the mouse wheel and right mouse functions as listed above</div>
-              </div>
-
-            </div>
+          </div>
 
         </div>
+        <!--inner content end-->
       </div>
 
       <div id="spacer"></div>
 
       <div class="container inner_content" id="GOL_Description">
-        <div>
-          <h2>What is it?</h2>
-        </div>
+        <h1 class="description_header">What is the Game of Life?</h1>
+
+        <hr/>
+
+        <p> The game of life is not a game, but a simulation of cells on a grid. It was created by a Cambridge mathematician named John Conway. The cells follow certain rules to repopulate or kill themselves, which results in very interesting paterns. The
+          rules include:
+
+          <div id="list_options" class="rules_GOL">
+            <div> For each cell that is currently alive:</div>
+            <ul>
+              <li>If it has one or no neighbors, it does as if by solitude</li>
+              <li>If it has two or three neighbors, it survives</li>
+              <li>If it has four or more neighbors, it dies as if by overpopulation</li>
+            </ul>
+            <div>For each cell that is currently dead:</div>
+            <ul>
+              <li>If it has exactly three neighbors, then it comes to life</li>
+            </ul>
+          </div>
       </div>
 
+      <div id="spacer"></div>
+      <div id="spacer"></div>
+      <!--container end-->
     </div>
+
+    <div id="footer">
+      <div id="footer_Top">
+        Bugs, Questions, Concerns? Send me a quick e-mail!
+      </div>
+      <div id="footer_Bottom">
+        <div class="contact-info">
+          jack.wu.11354@gmail.com
+        </div>
+        <div class="social-icons">
+          <a href="https://github.com/yacktu/game_of_life/tree/master/website_version" target="_blank">
+            <i class="fa fa-github-square" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <!--content end-->
+  </div>
   </div>
 </body>
 

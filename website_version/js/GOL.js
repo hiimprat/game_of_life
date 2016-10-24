@@ -77,8 +77,8 @@ function initConstants() {
     UNCHECKED = false;
     BOARD_WIDTH_MAX = 1024;
     BOARD_HEIGHT_MAX = 512;
-    LIVE_COLOR = "#ff3333";
-    DEAD_COLOR = "#e3e3e3";
+    LIVE_COLOR = "#cc0000";
+    DEAD_COLOR = "#A9A9A9";
     CENTER_OF_CANVAS = {
         X: BOARD_WIDTH_MAX / 2,
         Y: BOARD_HEIGHT_MAX / 2
@@ -443,6 +443,7 @@ function handleLeftMouseClick(event) {
     //if user wants to draw:
     if (leftMouseProperty == DRAW_MODE) {
         //if the cell is dead make it live
+        console.log(currentCell.isDead);
         if (currentCell.isDead == DEAD_CELL) {
             currentCell.isDead = LIVE_CELL;
 
@@ -456,8 +457,8 @@ function handleLeftMouseClick(event) {
     } else {
         //if the cell is alive, kill it
         if (currentCell.isDead == LIVE_CELL) {
-            currentCell.isDead == DEAD_CELL;
-
+            currentCell.isDead = DEAD_CELL;
+            
             //remove it from array of live cells
             removeFromLiveCells(currentCell);
 
@@ -855,6 +856,17 @@ function clearCanvas() {
     canvas2D.clearRect(-(canvasWidth / 2), -(canvasHeight / 2), canvasWidth, canvasHeight);
 }
 
+function stressTest(){
+  for(var indexX=0; indexX<BOARD_WIDTH_MAX; indexX++){
+    for(var indexY=255; indexY<=257; indexY++){
+      var currentCell = currentBoardOfCells[indexX][indexY];
+      currentCell.isDead = LIVE_CELL;
+      liveCells.push(currentCell);
+      renderCell(currentCell.x, currentCell.y, LIVE_COLOR);
+    }
+  }
+}
+
 /** ---------------------- GAME OF LIFE FUNCTIONS START --------------------------- **/
 /**
  * start the game of life
@@ -994,8 +1006,8 @@ function checkIfLiveCell(cell) {
 
         //If it has three neighbors, it's alive, it it has two neighbors
         //and it is not alive already, then it cannot be given life
-        if (cell.isDead == LIVE_CELL || numNeigh == 3) {
-            return true;
+        if(cell.isDead==LIVE_CELL || numNeigh==3){
+          return true;
         }
     }
     return false;

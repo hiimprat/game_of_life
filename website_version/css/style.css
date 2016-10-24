@@ -140,3 +140,34 @@ body, html {
 .note{
   font-size: 15px;
 }
+
+.rules_GOL{
+  padding-left:275px;
+}
+
+#footer{
+  background-color: #990000;
+  color:white;
+  text-align: center;
+  font-size: 20px;
+      box-shadow: 0 -10px 50px #595959;
+}
+
+#footer_Top{
+    background-color:#800000;
+    padding-top:10px;
+    padding-bottom:10px;
+}
+
+#footer_Bottom{
+  padding-top:10px;
+  padding-bottom:20px;
+}
+
+.social-icons a{
+  color:white;
+}
+
+.social-icons a:hover{
+  color:#cccccc;
+}
